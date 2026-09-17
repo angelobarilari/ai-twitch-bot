@@ -1,0 +1,23 @@
+{
+  "name": "ai-twitch-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "tsx --test",
+    "test:watch": "tsx --watch --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "tmi.js": "^1.8.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "@types/tmi.js": "^1.8.6",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
