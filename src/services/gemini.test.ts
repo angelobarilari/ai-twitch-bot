@@ -3,6 +3,14 @@ import test from "node:test";
 
 test("askGemini sends the API key in the header and uses an abort signal", async () => {
   const previousFetch = global.fetch;
+  const requiredVariables = [
+    "TWITCH_BOT_USERNAME",
+    "TWITCH_OAUTH_TOKEN",
+    "TWITCH_CHANNEL",
+    "GEMINI_API_KEY",
+    "GEMINI_MODEL",
+  ] as const;
+  const previousValues = new Map(requiredVariables.map((name) => [name, process.env[name]]));
   const calls: Record<string, unknown> = {};
 
   global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -21,6 +29,9 @@ test("askGemini sends the API key in the header and uses an abort signal", async
     );
   };
 
+  process.env.TWITCH_BOT_USERNAME = "test-bot";
+  process.env.TWITCH_OAUTH_TOKEN = "oauth:test-token";
+  process.env.TWITCH_CHANNEL = "test_channel";
   process.env.GEMINI_API_KEY = "abc123";
   process.env.GEMINI_MODEL = "gemini-2.5-flash";
 
@@ -34,7 +45,9 @@ test("askGemini sends the API key in the header and uses an abort signal", async
     assert.ok(calls.signal);
   } finally {
     global.fetch = previousFetch;
-    delete process.env.GEMINI_API_KEY;
-    delete process.env.GEMINI_MODEL;
+    for (const [name, value] of previousValues) {
+      if (typeof value === "undefined") delete process.env[name];
+      else process.env[name] = value;
+    }
   }
 });
