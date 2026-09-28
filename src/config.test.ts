@@ -4,11 +4,8 @@ import test from "node:test";
 function restoreEnv(snapshot: Record<string, string | undefined>) {
   for (const key of Object.keys(process.env)) {
     const value = snapshot[key];
-    if (typeof value === "undefined") {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
+    if (typeof value === "undefined") delete process.env[key];
+    else process.env[key] = value;
   }
 }
 
@@ -37,7 +34,7 @@ test("loadConfig accepts valid environment values", async () => {
   }
 });
 
-test("loadConfig rejects cd "c:\Users\angel\OneDrive\Desktop\ai-twitch-bot"; npx tsx --test src/config.test.ts src/commands/index.test.ts src/services/gemini.test.ts; npm run build numeric values", async () => {
+test("loadConfig rejects invalid numeric values", async () => {
   const snapshot = { ...process.env };
   process.env.TWITCH_BOT_USERNAME = "bot";
   process.env.TWITCH_OAUTH_TOKEN = "oauth:token";

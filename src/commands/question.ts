@@ -39,9 +39,11 @@ export const questionCommand: CommandHandler = async (context): Promise<void> =>
     await reply(`@${username}, please wait ${remainingSeconds(userAvailableAt, now)}s.`);
     return;
   }
-  
+
   if (now < globalAvailableAt) {
-    await reply(`Please wait ${remainingSeconds(globalAvailableAt, now)}s before the next question.`);
+    await reply(
+      `Please wait ${remainingSeconds(globalAvailableAt, now)}s before the next question.`,
+    );
     return;
   }
 

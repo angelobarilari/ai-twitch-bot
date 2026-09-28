@@ -11,7 +11,9 @@ test("askGemini sends the API key in the header and uses an abort signal", async
     calls.signal = init?.signal;
 
     return new Response(
-      JSON.stringify({ candidates: [{ content: { parts: [{ text: "Brasília is the capital." }] } }] }),
+      JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "Brasília is the capital." }] } }],
+      }),
       {
         status: 200,
         headers: { "content-type": "application/json" },

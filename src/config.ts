@@ -39,9 +39,16 @@ export function loadConfig() {
     channel,
     apiKey: requireEnv("GEMINI_API_KEY"),
     model: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
-    commandCooldownMs: parsePositiveInteger("COMMAND_COOLDOWN_SECONDS", process.env.COMMAND_COOLDOWN_SECONDS, 15) * 1000,
-    userCooldownMs: parsePositiveInteger("USER_COOLDOWN_SECONDS", process.env.USER_COOLDOWN_SECONDS, 30) * 1000,
-    maxQuestionLength: parsePositiveInteger("MAX_QUESTION_LENGTH", process.env.MAX_QUESTION_LENGTH, 300),
+    commandCooldownMs:
+      parsePositiveInteger("COMMAND_COOLDOWN_SECONDS", process.env.COMMAND_COOLDOWN_SECONDS, 15) *
+      1000,
+    userCooldownMs:
+      parsePositiveInteger("USER_COOLDOWN_SECONDS", process.env.USER_COOLDOWN_SECONDS, 30) * 1000,
+    maxQuestionLength: parsePositiveInteger(
+      "MAX_QUESTION_LENGTH",
+      process.env.MAX_QUESTION_LENGTH,
+      300,
+    ),
     maxAnswerLength: parsePositiveInteger("MAX_ANSWER_LENGTH", process.env.MAX_ANSWER_LENGTH, 420),
   };
 }

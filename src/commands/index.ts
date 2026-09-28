@@ -3,7 +3,12 @@ import { pingCommand } from "./ping.js";
 import { questionCommand } from "./question.js";
 import type { CommandHandler } from "./types.js";
 
-export type MessageHandler = (channel: string, tags: tmi.ChatUserstate, message: string, self: boolean) => Promise<void>;
+export type MessageHandler = (
+  channel: string,
+  tags: tmi.ChatUserstate,
+  message: string,
+  self: boolean,
+) => Promise<void>;
 
 export type ParsedCommand = {
   name: string;

@@ -99,6 +99,7 @@ MAX_ANSWER_LENGTH=420
 ```
 
 Notes:
+
 - `TWITCH_CHANNEL` can be passed as `#channel` or `channel`.
 - Numeric values must be positive finite numbers.
 - Keep `.env` out of version control and never commit real secrets.
@@ -135,6 +136,16 @@ npm test
 ```
 
 The current test suite covers the main configuration checks, command parsing, and Gemini request behavior.
+
+## Formatting and Git Hooks
+
+Run Prettier across the project with:
+
+```bash
+npm run format
+```
+
+`npm install` enables the Husky pre-commit hook. Before each commit, lint-staged formats supported staged files. GitHub Actions runs `npm run format:check` on pushes and pull requests.
 
 ## Git Workflow
 
