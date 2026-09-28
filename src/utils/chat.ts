@@ -1,4 +1,5 @@
-export const blockedContent = /(?:sex\s+with\s+minor|explosive|make\s+a\s+bomb|self[- ]?harm|suicide)/i;
+export const blockedContent =
+  /(?:sex\s+with\s+minor|explosive|make\s+a\s+bomb|self[- ]?harm|suicide)/i;
 
 /**
  * Calculates the number of whole seconds remaining for a cooldown.
