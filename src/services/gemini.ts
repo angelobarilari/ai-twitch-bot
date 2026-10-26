@@ -26,12 +26,15 @@ export async function askGemini(question: string): Promise<string | null> {
           systemInstruction: {
             parts: [
               {
-                text: "Answer in English, briefly and clearly for a Twitch chat. Never encourage violence, illegal activity, harassment, or sexual content involving minors. Do not use markdown.",
+                text: `Answer in English, briefly and clearly for a Twitch chat. Keep the response within ${config.maxAnswerLength} characters. Never encourage violence, illegal activity, harassment, or sexual content involving minors. Do not use markdown.`,
               },
             ],
           },
           contents: [{ role: "user", parts: [{ text: question }] }],
-          generationConfig: { maxOutputTokens: 180, temperature: 0.4 },
+          generationConfig: {
+            maxOutputTokens: Math.max(1, Math.ceil(config.maxAnswerLength / 3)),
+            temperature: 0.4,
+          },
           safetySettings: [
             { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
             { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
@@ -48,8 +51,16 @@ export async function askGemini(question: string): Promise<string | null> {
     }
 
     const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+        finishReason?: string;
+      }>;
     };
+
+    if (data.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+      console.error("Gemini response reached its output token limit.");
+      return null;
+    }
 
     return (
       data.candidates?.[0]?.content?.parts

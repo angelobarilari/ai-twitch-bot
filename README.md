@@ -33,7 +33,8 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 │   │   ├── index.test.ts
 │   │   ├── ping.ts
 │   │   ├── question.ts
-│   │   └── types.ts
+│   ├── types/
+│   │   └── commands.ts
 │   ├── services/
 │   │   ├── gemini.ts
 │   │   └── gemini.test.ts

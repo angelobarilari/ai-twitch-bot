@@ -1,6 +1,5 @@
 import type { ChatUserstate } from "tmi.js";
 
-/** Context passed to every registered command handler. */
 export type CommandContext = {
   channel: string;
   tags: ChatUserstate;
@@ -9,5 +8,17 @@ export type CommandContext = {
   reply: (message: string) => Promise<unknown>;
 };
 
-/** Function contract implemented by every bot command. */
 export type CommandHandler = (context: CommandContext) => Promise<void>;
+
+export type MessageHandler = (
+  channel: string,
+  tags: ChatUserstate,
+  message: string,
+  self: boolean,
+) => Promise<void>;
+
+export type ParsedCommand = {
+  name: string;
+  args: string[];
+  text: string;
+};
