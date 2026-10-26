@@ -1,20 +1,9 @@
 ﻿import type tmi from "tmi.js";
+import type { CommandHandler, MessageHandler, ParsedCommand } from "../types/commands.js";
 import { pingCommand } from "./ping.js";
 import { questionCommand } from "./question.js";
-import type { CommandHandler } from "./types.js";
 
-export type MessageHandler = (
-  channel: string,
-  tags: tmi.ChatUserstate,
-  message: string,
-  self: boolean,
-) => Promise<void>;
-
-export type ParsedCommand = {
-  name: string;
-  args: string[];
-  text: string;
-};
+export type { MessageHandler, ParsedCommand } from "../types/commands.js";
 
 const commands = new Map<string, CommandHandler>([
   ["ping", pingCommand],
