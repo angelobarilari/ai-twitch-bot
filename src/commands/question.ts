@@ -16,6 +16,7 @@ export function createQuestionCommand(
 ): CommandHandler {
   const lastCommandAt = new Map<string, number>();
   let lastGlobalCommandAt = 0;
+  let pendingQuestionCount = 0;
   let pendingResponses: Promise<void> = Promise.resolve();
 
   return async (context): Promise<void> => {
@@ -53,48 +54,58 @@ export function createQuestionCommand(
       return;
     }
 
+    if (pendingQuestionCount >= config.maxPendingQuestions) {
+      await reply("The AI question queue is full. Please try again later.");
+      return;
+    }
+
     lastCommandAt.set(username, currentTime);
     lastGlobalCommandAt = currentTime;
+    pendingQuestionCount += 1;
 
-    const responseTask = pendingResponses.then(async () => {
-      try {
-        let answer = await askQuestion(question);
-        if (!answer || blockedContent.test(answer)) {
-          await reply("The AI could not generate a safe answer for that question.");
-          return;
-        }
+    const responseTask = pendingResponses
+      .then(async () => {
+        try {
+          let answer = await askQuestion(question);
+          if (!answer || blockedContent.test(answer)) {
+            await reply("The AI could not generate a safe answer for that question.");
+            return;
+          }
 
-        if (answer.length > config.maxAnswerLength) {
-          answer = await askQuestion(
-            [
-              `Rewrite the draft as a complete, self-contained answer to the original question in no more than ${config.maxAnswerLength} characters.`,
-              "Preserve the essential context, use complete sentences, and do not end with an ellipsis or an unfinished thought.",
-              `Original question: ${question}`,
-              `Draft answer: ${answer}`,
-            ].join("\n"),
-          );
-        }
+          if (answer.length > config.maxAnswerLength) {
+            answer = await askQuestion(
+              [
+                `Rewrite the draft as a complete, self-contained answer to the original question in no more than ${config.maxAnswerLength} characters.`,
+                "Preserve the essential context, use complete sentences, and do not end with an ellipsis or an unfinished thought.",
+                `Original question: ${question}`,
+                `Draft answer: ${answer}`,
+              ].join("\n"),
+            );
+          }
 
-        if (!answer || blockedContent.test(answer)) {
-          await reply("The AI could not generate a safe answer for that question.");
-          return;
-        }
+          if (!answer || blockedContent.test(answer)) {
+            await reply("The AI could not generate a safe answer for that question.");
+            return;
+          }
 
-        if (answer.length > config.maxAnswerLength) {
-          await reply(
-            "I could not provide a complete answer within the chat limit. Please try a shorter question.",
-          );
-          return;
-        }
+          if (answer.length > config.maxAnswerLength) {
+            await reply(
+              "I could not provide a complete answer within the chat limit. Please try a shorter question.",
+            );
+            return;
+          }
 
-        for (const chunk of splitForTwitch(answer, 430)) {
-          await reply(chunk);
+          for (const chunk of splitForTwitch(answer, 430)) {
+            await reply(chunk);
+          }
+        } catch (error) {
+          console.error("Error while querying the AI:", error);
+          await reply("I could not query the AI right now. Please try again later.");
         }
-      } catch (error) {
-        console.error("Error while querying the AI:", error);
-        await reply("I could not query the AI right now. Please try again later.");
-      }
-    });
+      })
+      .finally(() => {
+        pendingQuestionCount -= 1;
+      });
 
     pendingResponses = responseTask.catch(() => {});
     await responseTask;

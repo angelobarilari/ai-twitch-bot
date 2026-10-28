@@ -97,12 +97,14 @@ COMMAND_COOLDOWN_SECONDS=15
 USER_COOLDOWN_SECONDS=30
 MAX_QUESTION_LENGTH=300
 MAX_ANSWER_LENGTH=420
+MAX_PENDING_QUESTIONS=5
 ```
 
 Notes:
 
 - `TWITCH_CHANNEL` can be passed as `#channel` or `channel`.
-- Numeric values must be positive finite numbers.
+- Numeric values must be positive finite numbers. `MAX_PENDING_QUESTIONS` must be a positive safe integer.
+- `MAX_PENDING_QUESTIONS` limits the total number of accepted questions being processed or waiting in the queue; its default is `5`.
 - Keep `.env` out of version control and never commit real secrets.
 
 ## Commands
@@ -136,7 +138,7 @@ Run the project tests with:
 npm test
 ```
 
-The current test suite covers the main configuration checks, command parsing, and Gemini request behavior.
+The current test suite covers configuration validation (including the pending-question limit), command parsing and queue behavior, and Gemini request behavior. When the configured queue is full, new questions are rejected with a notice in chat until a pending request completes.
 
 ## Formatting and Git Hooks
 
