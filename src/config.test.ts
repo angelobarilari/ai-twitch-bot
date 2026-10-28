@@ -20,6 +20,7 @@ test("loadConfig accepts valid environment values", async () => {
   process.env.USER_COOLDOWN_SECONDS = "30";
   process.env.MAX_QUESTION_LENGTH = "300";
   process.env.MAX_ANSWER_LENGTH = "420";
+  process.env.MAX_PENDING_QUESTIONS = "7";
 
   try {
     const { loadConfig } = await import("./config.js");
@@ -29,6 +30,23 @@ test("loadConfig accepts valid environment values", async () => {
     assert.equal(config.userCooldownMs, 30000);
     assert.equal(config.maxQuestionLength, 300);
     assert.equal(config.maxAnswerLength, 420);
+    assert.equal(config.maxPendingQuestions, 7);
+  } finally {
+    restoreEnv(snapshot);
+  }
+});
+
+test("loadConfig defaults the pending question limit", async () => {
+  const snapshot = { ...process.env };
+  process.env.TWITCH_BOT_USERNAME = "bot";
+  process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
+  process.env.TWITCH_CHANNEL = "#channel";
+  process.env.GEMINI_API_KEY = "abc123";
+  delete process.env.MAX_PENDING_QUESTIONS;
+
+  try {
+    const { loadConfig } = await import("./config.js");
+    assert.equal(loadConfig().maxPendingQuestions, 5);
   } finally {
     restoreEnv(snapshot);
   }
@@ -45,6 +63,22 @@ test("loadConfig rejects invalid numeric values", async () => {
   try {
     const { loadConfig } = await import("./config.js");
     assert.throws(() => loadConfig(), /COMMAND_COOLDOWN_SECONDS/);
+  } finally {
+    restoreEnv(snapshot);
+  }
+});
+
+test("loadConfig rejects a non-integer pending question limit", async () => {
+  const snapshot = { ...process.env };
+  process.env.TWITCH_BOT_USERNAME = "bot";
+  process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
+  process.env.TWITCH_CHANNEL = "#channel";
+  process.env.GEMINI_API_KEY = "abc123";
+  process.env.MAX_PENDING_QUESTIONS = "1.5";
+
+  try {
+    const { loadConfig } = await import("./config.js");
+    assert.throws(() => loadConfig(), /MAX_PENDING_QUESTIONS/);
   } finally {
     restoreEnv(snapshot);
   }

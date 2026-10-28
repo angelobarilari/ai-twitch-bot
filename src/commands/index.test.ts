@@ -114,6 +114,51 @@ test("questionCommand serializes accepted Gemini requests", async () => {
   assert.deepEqual(replies, ["first answer", "second answer"]);
 });
 
+test("questionCommand rejects requests when the pending queue is full", async () => {
+  let currentTime = 100_000;
+  const calls: string[] = [];
+  const replies: string[] = [];
+  let resolveFirstAnswer: (answer: string) => void = () => {};
+  let markFirstRequestStarted: () => void = () => {};
+  const firstAnswer = new Promise<string>((resolve) => {
+    resolveFirstAnswer = resolve;
+  });
+  const firstRequestStarted = new Promise<void>((resolve) => {
+    markFirstRequestStarted = resolve;
+  });
+  const command = createQuestionCommand(
+    async (question) => {
+      calls.push(question);
+      if (question === "question 0") {
+        markFirstRequestStarted();
+        return firstAnswer;
+      }
+      return "answer";
+    },
+    () => currentTime,
+  );
+  const acceptedCommands = [command(createContext("viewer-0", "question 0", replies))];
+  await firstRequestStarted;
+
+  for (let index = 1; index < config.maxPendingQuestions; index += 1) {
+    currentTime += config.commandCooldownMs + 1;
+    acceptedCommands.push(command(createContext(`viewer-${index}`, `question ${index}`, replies)));
+  }
+
+  currentTime += config.commandCooldownMs + 1;
+  await command(createContext("viewer-overflow", "overflow question", replies));
+  assert.ok(replies.includes("The AI question queue is full. Please try again later."));
+
+  resolveFirstAnswer("answer");
+  await Promise.all(acceptedCommands);
+  assert.equal(calls.length, config.maxPendingQuestions);
+  assert.ok(!calls.includes("overflow question"));
+
+  currentTime += config.commandCooldownMs + 1;
+  await command(createContext("viewer-after-queue", "after queue", replies));
+  assert.ok(calls.includes("after queue"));
+});
+
 test("questionCommand asks Gemini to rewrite an overlong answer completely", async () => {
   const prompts: string[] = [];
   const replies: string[] = [];

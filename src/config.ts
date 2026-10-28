@@ -26,6 +26,21 @@ function parsePositiveInteger(name: string, value: string | undefined, fallback:
   return parsed;
 }
 
+function parsePositiveSafeInteger(
+  name: string,
+  value: string | undefined,
+  fallback: number,
+): number {
+  const candidate = value ?? String(fallback);
+  const parsed = Number(candidate);
+
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive safe integer.`);
+  }
+
+  return parsed;
+}
+
 export function loadConfig() {
   const channel = requireEnv("TWITCH_CHANNEL").replace(/^#/, "").toLowerCase();
 
@@ -50,6 +65,11 @@ export function loadConfig() {
       300,
     ),
     maxAnswerLength: parsePositiveInteger("MAX_ANSWER_LENGTH", process.env.MAX_ANSWER_LENGTH, 420),
+    maxPendingQuestions: parsePositiveSafeInteger(
+      "MAX_PENDING_QUESTIONS",
+      process.env.MAX_PENDING_QUESTIONS,
+      5,
+    ),
   };
 }
 
