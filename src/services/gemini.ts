@@ -2,6 +2,9 @@
 
 const GEMINI_TIMEOUT_MS = 10_000;
 
+type GeminiRequestOutcome =
+  "success" | "empty_response" | "http_error" | "max_tokens" | "network_error" | "timeout";
+
 /**
  * Sends a question to Gemini and extracts the first generated text response.
  *
@@ -9,8 +12,11 @@ const GEMINI_TIMEOUT_MS = 10_000;
  * @returns The generated answer, or null when Gemini rejects the request or returns no text.
  */
 export async function askGemini(question: string): Promise<string | null> {
+  const startedAt = performance.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  let outcome: GeminiRequestOutcome = "network_error";
+  let status: number | undefined;
 
   try {
     const response = await fetch(
@@ -46,7 +52,8 @@ export async function askGemini(question: string): Promise<string | null> {
     );
 
     if (!response.ok) {
-      console.error(`Gemini request failed with status ${response.status}.`);
+      outcome = "http_error";
+      status = response.status;
       return null;
     }
 
@@ -58,25 +65,35 @@ export async function askGemini(question: string): Promise<string | null> {
     };
 
     if (data.candidates?.[0]?.finishReason === "MAX_TOKENS") {
-      console.error("Gemini response reached its output token limit.");
+      outcome = "max_tokens";
       return null;
     }
 
-    return (
+    const answer =
       data.candidates?.[0]?.content?.parts
         ?.map((part) => part.text ?? "")
         .join("")
-        .trim() || null
-    );
+        .trim() || null;
+    outcome = answer ? "success" : "empty_response";
+    return answer;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      console.error("Gemini request timed out.");
+      outcome = "timeout";
       return null;
     }
 
-    console.error("Gemini request failed.");
+    outcome = "network_error";
     return null;
   } finally {
     clearTimeout(timer);
+    const logEntry = JSON.stringify({
+      event: "gemini.request",
+      outcome,
+      durationMs: Math.round(performance.now() - startedAt),
+      ...(status === undefined ? {} : { status }),
+    });
+
+    if (outcome === "success") console.info(logEntry);
+    else console.error(logEntry);
   }
 }

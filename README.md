@@ -15,6 +15,7 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 - `!help` command listing available chat commands
 - Moderator commands to pause AI responses and inspect or clear waiting questions
 - Automatic Twitch reconnection and graceful shutdown on termination signals
+- Privacy-conscious structured logs for Gemini request latency and outcomes
 - Built-in cooldowns and safety checks
 - Runtime validation for environment variables and numeric settings
 - TypeScript codebase with automated validation tests
@@ -171,6 +172,8 @@ npm test
 ```
 
 The current test suite covers configuration validation (including the pending-question limit), chat utilities, command parsing and queue behavior, and Gemini request behavior. Chat utility tests cover cooldown rounding, whitespace normalization, word-boundary splitting, and invalid chunk limits. When the configured queue is full, new questions are rejected until a pending request completes.
+
+Gemini requests emit structured logs with the outcome, duration in milliseconds, and HTTP status when available. Logs intentionally exclude question/answer contents and API credentials.
 
 Moderators and the broadcaster can use `!ai on` / `!ai off` to control new questions and `!queue` / `!queue clear` to inspect or remove waiting questions. Clearing the queue does not interrupt an answer already in progress. The bot automatically reconnects to Twitch and handles `SIGINT` / `SIGTERM` by disconnecting cleanly.
 
