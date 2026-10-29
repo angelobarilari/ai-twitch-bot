@@ -65,6 +65,22 @@ test("message handler routes !help to the registered command", async () => {
   assert.equal(replies.length, 1);
   assert.match(replies[0] ?? "", /!help/);
   assert.match(replies[0] ?? "", /!question/);
+  assert.match(replies[0] ?? "", /!about/);
+});
+
+test("message handler routes !about to the registered command", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+
+  await createMessageHandler(client)("test_channel", { username: "viewer" }, "!about", false);
+
+  assert.deepEqual(replies, [
+    "Sou um bot de chat com IA para Twitch. Uso o Gemini para responder perguntas de forma breve; use !help para ver os comandos.",
+  ]);
 });
 
 function createContext(username: string, text: string, replies: string[]): CommandContext {
@@ -148,12 +164,17 @@ test("questionCommand serializes accepted Gemini requests", async () => {
   currentTime += config.commandCooldownMs + 1;
   const secondCommand = command(createContext("viewer-two", "second question", replies));
   assert.deepEqual(calls, ["first question"]);
+  assert.deepEqual(replies, ["Sua pergunta entrou na fila. Posição: 1."]);
 
   resolveFirstAnswer("first answer");
   await Promise.all([firstCommand, secondCommand]);
 
   assert.deepEqual(calls, ["first question", "second question"]);
-  assert.deepEqual(replies, ["first answer", "second answer"]);
+  assert.deepEqual(replies, [
+    "Sua pergunta entrou na fila. Posição: 1.",
+    "first answer",
+    "second answer",
+  ]);
 });
 
 test("questionCommand rejects requests when the pending queue is full", async () => {

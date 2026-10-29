@@ -37,6 +37,8 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 │   │   ├── index.test.ts
 │   │   ├── help.ts
 │   │   ├── help.test.ts
+│   │   ├── about.ts
+│   │   ├── about.test.ts
 │   │   ├── ai.ts
 │   │   ├── ai.test.ts
 │   │   ├── ai-state.ts
@@ -50,7 +52,8 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 │   │   ├── gemini.ts
 │   │   └── gemini.test.ts
 │   ├── utils/
-│   │   └── chat.ts
+│   │   ├── chat.ts
+│   │   └── chat.test.ts
 │   ├── config.ts
 │   ├── config.test.ts
 │   └── index.ts
@@ -128,7 +131,11 @@ Checks that the bot is online and responding.
 
 ### `!help`
 
-Lists the available commands in chat.
+Lists the available commands in Portuguese.
+
+### `!about`
+
+Explains what the bot does and points viewers to `!help`.
 
 ### `!ai on` / `!ai off`
 
@@ -136,7 +143,7 @@ Enables or disables AI questions. Only moderators and the broadcaster can use th
 
 ### `!queue` / `!queue clear`
 
-Shows the active and waiting question counts, or clears waiting questions. Only moderators and the broadcaster can use these commands; an active request is not canceled.
+Shows the active and waiting question counts, or clears waiting questions. Only moderators and the broadcaster can use these commands; an active request is not canceled. When a question waits behind an active request, the bot reports its current position.
 
 ### `!question <your question>`
 
@@ -163,7 +170,7 @@ Run the project tests with:
 npm test
 ```
 
-The current test suite covers configuration validation (including the pending-question limit), command parsing and queue behavior, and Gemini request behavior. When the configured queue is full, new questions are rejected with a notice in chat until a pending request completes.
+The current test suite covers configuration validation (including the pending-question limit), chat utilities, command parsing and queue behavior, and Gemini request behavior. Chat utility tests cover cooldown rounding, whitespace normalization, word-boundary splitting, and invalid chunk limits. When the configured queue is full, new questions are rejected until a pending request completes.
 
 Moderators and the broadcaster can use `!ai on` / `!ai off` to control new questions and `!queue` / `!queue clear` to inspect or remove waiting questions. Clearing the queue does not interrupt an answer already in progress. The bot automatically reconnects to Twitch and handles `SIGINT` / `SIGTERM` by disconnecting cleanly.
 

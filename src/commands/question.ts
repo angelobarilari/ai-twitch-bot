@@ -142,11 +142,17 @@ export function createQuestionCommand(
     lastCommandAt.set(username, currentTime);
     lastGlobalCommandAt = currentTime;
     pendingQuestionCount += 1;
+    let queuedPosition: number | null = null;
 
     const responseTask = new Promise<void>((resolve, reject) => {
+      if (activeQuestion) queuedPosition = pendingQuestions.length + 1;
       pendingQuestions.push({ question, reply, resolve, reject });
       processNextQuestion();
     });
+
+    if (queuedPosition !== null) {
+      await reply(`Sua pergunta entrou na fila. Posição: ${queuedPosition}.`);
+    }
 
     await responseTask;
   };

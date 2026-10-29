@@ -1,6 +1,7 @@
 ﻿import type tmi from "tmi.js";
 import type { CommandHandler, MessageHandler, ParsedCommand } from "../types/commands.js";
 import { aiCommand } from "./ai.js";
+import { aboutCommand } from "./about.js";
 import { helpCommand } from "./help.js";
 import { pingCommand } from "./ping.js";
 import { queueCommand } from "./queue.js";
@@ -10,6 +11,7 @@ export type { MessageHandler, ParsedCommand } from "../types/commands.js";
 
 const commands = new Map<string, CommandHandler>([
   ["ai", aiCommand],
+  ["about", aboutCommand],
   ["help", helpCommand],
   ["ping", pingCommand],
   ["queue", queueCommand],

@@ -10,7 +10,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
-    "test": "tsx --test src/config.test.ts src/commands/index.test.ts src/commands/help.test.ts src/commands/ai.test.ts src/services/gemini.test.ts",
+    "test": "tsx --test src/config.test.ts src/commands/index.test.ts src/commands/help.test.ts src/commands/about.test.ts src/commands/ai.test.ts src/utils/chat.test.ts src/services/gemini.test.ts",
     "test:watch": "tsx --watch --test"
   },
   "dependencies": {
