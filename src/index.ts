@@ -4,6 +4,7 @@ import { config } from "./config.js";
 
 const client = new tmi.Client({
   options: { debug: false },
+  connection: { reconnect: true, secure: true },
   identity: { username: config.username, password: config.token },
   channels: [config.channel],
 });
@@ -20,6 +21,33 @@ function handleConnected(_address: string, port: number): void {
 }
 
 client.on("connected", handleConnected);
+client.on("connecting", (address, port) => {
+  console.log(`Connecting to Twitch at ${address}:${port}.`);
+});
+client.on("reconnect", () => {
+  console.warn("Twitch connection lost; reconnecting.");
+});
+client.on("disconnected", (reason) => {
+  console.warn(`Disconnected from Twitch: ${reason}`);
+});
 client.on("message", createMessageHandler(client));
+
+let shuttingDown = false;
+
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`Received ${signal}; disconnecting from Twitch.`);
+
+  try {
+    await client.disconnect();
+  } catch (error) {
+    console.error("Failed to disconnect cleanly from Twitch:", error);
+    process.exitCode = 1;
+  }
+}
+
+process.once("SIGINT", () => void shutdown("SIGINT"));
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
 await client.connect();

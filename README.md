@@ -13,6 +13,8 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 - Gemini API integration for chat responses
 - Configurable language for AI responses (Brazilian Portuguese by default)
 - `!help` command listing available chat commands
+- Moderator commands to pause AI responses and inspect or clear waiting questions
+- Automatic Twitch reconnection and graceful shutdown on termination signals
 - Built-in cooldowns and safety checks
 - Runtime validation for environment variables and numeric settings
 - TypeScript codebase with automated validation tests
@@ -35,6 +37,11 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 │   │   ├── index.test.ts
 │   │   ├── help.ts
 │   │   ├── help.test.ts
+│   │   ├── ai.ts
+│   │   ├── ai.test.ts
+│   │   ├── ai-state.ts
+│   │   ├── permissions.ts
+│   │   ├── queue.ts
 │   │   ├── ping.ts
 │   │   ├── question.ts
 │   ├── types/
@@ -123,6 +130,14 @@ Checks that the bot is online and responding.
 
 Lists the available commands in chat.
 
+### `!ai on` / `!ai off`
+
+Enables or disables AI questions. Only moderators and the broadcaster can use this command.
+
+### `!queue` / `!queue clear`
+
+Shows the active and waiting question counts, or clears waiting questions. Only moderators and the broadcaster can use these commands; an active request is not canceled.
+
 ### `!question <your question>`
 
 Sends the question to Gemini and replies in chat.
@@ -149,6 +164,8 @@ npm test
 ```
 
 The current test suite covers configuration validation (including the pending-question limit), command parsing and queue behavior, and Gemini request behavior. When the configured queue is full, new questions are rejected with a notice in chat until a pending request completes.
+
+Moderators and the broadcaster can use `!ai on` / `!ai off` to control new questions and `!queue` / `!queue clear` to inspect or remove waiting questions. Clearing the queue does not interrupt an answer already in progress. The bot automatically reconnects to Twitch and handles `SIGINT` / `SIGTERM` by disconnecting cleanly.
 
 ## Formatting and Git Hooks
 
