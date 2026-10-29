@@ -1,11 +1,13 @@
 ﻿import type tmi from "tmi.js";
 import type { CommandHandler, MessageHandler, ParsedCommand } from "../types/commands.js";
+import { helpCommand } from "./help.js";
 import { pingCommand } from "./ping.js";
 import { questionCommand } from "./question.js";
 
 export type { MessageHandler, ParsedCommand } from "../types/commands.js";
 
 const commands = new Map<string, CommandHandler>([
+  ["help", helpCommand],
   ["ping", pingCommand],
   ["question", questionCommand],
 ]);

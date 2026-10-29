@@ -11,6 +11,8 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 - Twitch chat connection using `tmi.js`
 - Modular command architecture
 - Gemini API integration for chat responses
+- Configurable language for AI responses (Brazilian Portuguese by default)
+- `!help` command listing available chat commands
 - Built-in cooldowns and safety checks
 - Runtime validation for environment variables and numeric settings
 - TypeScript codebase with automated validation tests
@@ -31,6 +33,8 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 │   ├── commands/
 │   │   ├── index.ts
 │   │   ├── index.test.ts
+│   │   ├── help.ts
+│   │   ├── help.test.ts
 │   │   ├── ping.ts
 │   │   ├── question.ts
 │   ├── types/
@@ -93,6 +97,7 @@ TWITCH_OAUTH_TOKEN=oauth:your_twitch_token
 TWITCH_CHANNEL=your_channel_name
 GEMINI_API_KEY=your_google_ai_studio_key
 GEMINI_MODEL=gemini-2.5-flash
+GEMINI_LANGUAGE=Portuguese (Brazil)
 COMMAND_COOLDOWN_SECONDS=15
 USER_COOLDOWN_SECONDS=30
 MAX_QUESTION_LENGTH=300
@@ -103,6 +108,7 @@ MAX_PENDING_QUESTIONS=5
 Notes:
 
 - `TWITCH_CHANNEL` can be passed as `#channel` or `channel`.
+- `GEMINI_LANGUAGE` controls the language used for AI responses; it defaults to `Portuguese (Brazil)`.
 - Numeric values must be positive finite numbers. `MAX_PENDING_QUESTIONS` must be a positive safe integer.
 - `MAX_PENDING_QUESTIONS` limits the total number of accepted questions being processed or waiting in the queue; its default is `5`.
 - Keep `.env` out of version control and never commit real secrets.
@@ -112,6 +118,10 @@ Notes:
 ### `!ping`
 
 Checks that the bot is online and responding.
+
+### `!help`
+
+Lists the available commands in chat.
 
 ### `!question <your question>`
 

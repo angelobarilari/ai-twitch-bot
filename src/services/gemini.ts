@@ -26,7 +26,7 @@ export async function askGemini(question: string): Promise<string | null> {
           systemInstruction: {
             parts: [
               {
-                text: `Answer in English, briefly and clearly for a Twitch chat. Keep the response within ${config.maxAnswerLength} characters. Never encourage violence, illegal activity, harassment, or sexual content involving minors. Do not use markdown.`,
+                text: `Answer in ${config.language}, briefly and clearly for a Twitch chat. Keep the response within ${config.maxAnswerLength} characters. Never encourage violence, illegal activity, harassment, or sexual content involving minors. Do not use markdown.`,
               },
             ],
           },

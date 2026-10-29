@@ -54,6 +54,7 @@ export function loadConfig() {
     channel,
     apiKey: requireEnv("GEMINI_API_KEY"),
     model: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
+    language: process.env.GEMINI_LANGUAGE?.trim() || "Portuguese (Brazil)",
     commandCooldownMs:
       parsePositiveInteger("COMMAND_COOLDOWN_SECONDS", process.env.COMMAND_COOLDOWN_SECONDS, 15) *
       1000,

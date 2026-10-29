@@ -9,6 +9,7 @@ test("askGemini sends the API key in the header and uses an abort signal", async
     "TWITCH_CHANNEL",
     "GEMINI_API_KEY",
     "GEMINI_MODEL",
+    "GEMINI_LANGUAGE",
     "MAX_ANSWER_LENGTH",
   ] as const;
   const previousValues = new Map(requiredVariables.map((name) => [name, process.env[name]]));
@@ -36,6 +37,7 @@ test("askGemini sends the API key in the header and uses an abort signal", async
   process.env.TWITCH_CHANNEL = "test_channel";
   process.env.GEMINI_API_KEY = "abc123";
   process.env.GEMINI_MODEL = "gemini-2.5-flash";
+  process.env.GEMINI_LANGUAGE = "English";
   process.env.MAX_ANSWER_LENGTH = "120";
 
   try {
@@ -51,6 +53,7 @@ test("askGemini sends the API key in the header and uses an abort signal", async
       systemInstruction: { parts: Array<{ text: string }> };
     };
     assert.equal(requestBody.generationConfig.maxOutputTokens, 40);
+    assert.match(requestBody.systemInstruction.parts[0]?.text ?? "", /Answer in English/);
     assert.match(requestBody.systemInstruction.parts[0]?.text ?? "", /within 120 characters/);
   } finally {
     global.fetch = previousFetch;
