@@ -9,9 +9,9 @@ const requiredEnv = [
 
 function requireEnv(name: string): string {
   const value = process.env[name];
-  if (!value || !value.trim()) {
-    throw new Error(`Required environment variable is missing: ${name}`);
-  }
+
+  if (!value || !value.trim()) throw new Error(`Required environment variable is missing: ${name}`);
+
   return value.trim();
 }
 
@@ -19,9 +19,8 @@ function parsePositiveInteger(name: string, value: string | undefined, fallback:
   const candidate = value ?? String(fallback);
   const parsed = Number(candidate);
 
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  if (!Number.isFinite(parsed) || parsed <= 0)
     throw new Error(`${name} must be a positive finite number.`);
-  }
 
   return parsed;
 }
@@ -34,9 +33,8 @@ function parsePositiveSafeInteger(
   const candidate = value ?? String(fallback);
   const parsed = Number(candidate);
 
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+  if (!Number.isSafeInteger(parsed) || parsed <= 0)
     throw new Error(`${name} must be a positive safe integer.`);
-  }
 
   return parsed;
 }
@@ -54,6 +52,7 @@ export function loadConfig() {
     channel,
     apiKey: requireEnv("GEMINI_API_KEY"),
     model: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
+    language: process.env.GEMINI_LANGUAGE?.trim() || "Portuguese (Brazil)",
     commandCooldownMs:
       parsePositiveInteger("COMMAND_COOLDOWN_SECONDS", process.env.COMMAND_COOLDOWN_SECONDS, 15) *
       1000,
@@ -73,8 +72,6 @@ export function loadConfig() {
   };
 }
 
-for (const name of requiredEnv) {
-  requireEnv(name);
-}
+for (const name of requiredEnv) requireEnv(name);
 
 export const config = loadConfig();

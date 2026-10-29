@@ -16,6 +16,7 @@ test("loadConfig accepts valid environment values", async () => {
   process.env.TWITCH_CHANNEL = "#channel";
   process.env.GEMINI_API_KEY = "abc123";
   process.env.GEMINI_MODEL = "gemini-2.5-flash";
+  process.env.GEMINI_LANGUAGE = "English";
   process.env.COMMAND_COOLDOWN_SECONDS = "15";
   process.env.USER_COOLDOWN_SECONDS = "30";
   process.env.MAX_QUESTION_LENGTH = "300";
@@ -26,11 +27,28 @@ test("loadConfig accepts valid environment values", async () => {
     const { loadConfig } = await import("./config.js");
     const config = loadConfig();
     assert.equal(config.channel, "channel");
+    assert.equal(config.language, "English");
     assert.equal(config.commandCooldownMs, 15000);
     assert.equal(config.userCooldownMs, 30000);
     assert.equal(config.maxQuestionLength, 300);
     assert.equal(config.maxAnswerLength, 420);
     assert.equal(config.maxPendingQuestions, 7);
+  } finally {
+    restoreEnv(snapshot);
+  }
+});
+
+test("loadConfig defaults the response language to Brazilian Portuguese", async () => {
+  const snapshot = { ...process.env };
+  process.env.TWITCH_BOT_USERNAME = "bot";
+  process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
+  process.env.TWITCH_CHANNEL = "#channel";
+  process.env.GEMINI_API_KEY = "abc123";
+  delete process.env.GEMINI_LANGUAGE;
+
+  try {
+    const { loadConfig } = await import("./config.js");
+    assert.equal(loadConfig().language, "Portuguese (Brazil)");
   } finally {
     restoreEnv(snapshot);
   }

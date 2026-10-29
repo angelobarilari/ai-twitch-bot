@@ -11,6 +11,11 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 - Twitch chat connection using `tmi.js`
 - Modular command architecture
 - Gemini API integration for chat responses
+- Configurable language for AI responses (Brazilian Portuguese by default)
+- `!help` command listing available chat commands
+- Moderator commands to pause AI responses and inspect or clear waiting questions
+- Automatic Twitch reconnection and graceful shutdown on termination signals
+- Privacy-conscious structured logs for Gemini request latency and outcomes
 - Built-in cooldowns and safety checks
 - Runtime validation for environment variables and numeric settings
 - TypeScript codebase with automated validation tests
@@ -31,6 +36,15 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 │   ├── commands/
 │   │   ├── index.ts
 │   │   ├── index.test.ts
+│   │   ├── help.ts
+│   │   ├── help.test.ts
+│   │   ├── about.ts
+│   │   ├── about.test.ts
+│   │   ├── ai.ts
+│   │   ├── ai.test.ts
+│   │   ├── ai-state.ts
+│   │   ├── permissions.ts
+│   │   ├── queue.ts
 │   │   ├── ping.ts
 │   │   ├── question.ts
 │   ├── types/
@@ -39,7 +53,8 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 │   │   ├── gemini.ts
 │   │   └── gemini.test.ts
 │   ├── utils/
-│   │   └── chat.ts
+│   │   ├── chat.ts
+│   │   └── chat.test.ts
 │   ├── config.ts
 │   ├── config.test.ts
 │   └── index.ts
@@ -93,6 +108,7 @@ TWITCH_OAUTH_TOKEN=oauth:your_twitch_token
 TWITCH_CHANNEL=your_channel_name
 GEMINI_API_KEY=your_google_ai_studio_key
 GEMINI_MODEL=gemini-2.5-flash
+GEMINI_LANGUAGE=Portuguese (Brazil)
 COMMAND_COOLDOWN_SECONDS=15
 USER_COOLDOWN_SECONDS=30
 MAX_QUESTION_LENGTH=300
@@ -103,6 +119,7 @@ MAX_PENDING_QUESTIONS=5
 Notes:
 
 - `TWITCH_CHANNEL` can be passed as `#channel` or `channel`.
+- `GEMINI_LANGUAGE` controls the language used for AI responses; it defaults to `Portuguese (Brazil)`.
 - Numeric values must be positive finite numbers. `MAX_PENDING_QUESTIONS` must be a positive safe integer.
 - `MAX_PENDING_QUESTIONS` limits the total number of accepted questions being processed or waiting in the queue; its default is `5`.
 - Keep `.env` out of version control and never commit real secrets.
@@ -112,6 +129,22 @@ Notes:
 ### `!ping`
 
 Checks that the bot is online and responding.
+
+### `!help`
+
+Lists the available commands in Portuguese.
+
+### `!about`
+
+Explains what the bot does and points viewers to `!help`.
+
+### `!ai on` / `!ai off`
+
+Enables or disables AI questions. Only moderators and the broadcaster can use this command.
+
+### `!queue` / `!queue clear`
+
+Shows the active and waiting question counts, or clears waiting questions. Only moderators and the broadcaster can use these commands; an active request is not canceled. When a question waits behind an active request, the bot reports its current position.
 
 ### `!question <your question>`
 
@@ -138,7 +171,11 @@ Run the project tests with:
 npm test
 ```
 
-The current test suite covers configuration validation (including the pending-question limit), command parsing and queue behavior, and Gemini request behavior. When the configured queue is full, new questions are rejected with a notice in chat until a pending request completes.
+The current test suite covers configuration validation (including the pending-question limit), chat utilities, command parsing and queue behavior, and Gemini request behavior. Chat utility tests cover cooldown rounding, whitespace normalization, word-boundary splitting, and invalid chunk limits. When the configured queue is full, new questions are rejected until a pending request completes.
+
+Gemini requests emit structured logs with the outcome, duration in milliseconds, and HTTP status when available. Logs intentionally exclude question/answer contents and API credentials.
+
+Moderators and the broadcaster can use `!ai on` / `!ai off` to control new questions and `!queue` / `!queue clear` to inspect or remove waiting questions. Clearing the queue does not interrupt an answer already in progress. The bot automatically reconnects to Twitch and handles `SIGINT` / `SIGTERM` by disconnecting cleanly.
 
 ## Formatting and Git Hooks
 

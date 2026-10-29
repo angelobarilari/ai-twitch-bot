@@ -1,10 +1,14 @@
 ﻿import assert from "node:assert/strict";
 import { before, test } from "node:test";
+import tmi from "tmi.js";
 import type { CommandContext } from "../types/commands.js";
 
 let parseCommand: typeof import("./index.js").parseCommand;
 let createQuestionCommand: typeof import("./question.js").createQuestionCommand;
 let config: typeof import("../config.js").config;
+let setAiEnabled: typeof import("./ai-state.js").setAiEnabled;
+let queueCommand: typeof import("./queue.js").queueCommand;
+let createMessageHandler: typeof import("./index.js").createMessageHandler;
 
 before(async () => {
   const requiredVariables = [
@@ -24,6 +28,10 @@ before(async () => {
     ({ parseCommand } = await import("./index.js"));
     ({ createQuestionCommand } = await import("./question.js"));
     ({ config } = await import("../config.js"));
+    ({ setAiEnabled } = await import("./ai-state.js"));
+    ({ queueCommand } = await import("./queue.js"));
+    ({ createMessageHandler } = await import("./index.js"));
+    setAiEnabled(true);
   } finally {
     for (const [name, value] of previousValues) {
       if (typeof value === "undefined") delete process.env[name];
@@ -42,6 +50,37 @@ test("parseCommand handles command text and arguments", () => {
 
 test("parseCommand rejects non-command text", () => {
   assert.equal(parseCommand("hello there"), null);
+});
+
+test("message handler routes !help to the registered command", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+
+  await createMessageHandler(client)("test_channel", { username: "viewer" }, "!help", false);
+
+  assert.equal(replies.length, 1);
+  assert.match(replies[0] ?? "", /!help/);
+  assert.match(replies[0] ?? "", /!question/);
+  assert.match(replies[0] ?? "", /!about/);
+});
+
+test("message handler routes !about to the registered command", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+
+  await createMessageHandler(client)("test_channel", { username: "viewer" }, "!about", false);
+
+  assert.deepEqual(replies, [
+    "Sou um bot de chat com IA para Twitch. Uso o Gemini para responder perguntas de forma breve; use !help para ver os comandos.",
+  ]);
 });
 
 function createContext(username: string, text: string, replies: string[]): CommandContext {
@@ -76,6 +115,25 @@ test("questionCommand rejects invalid questions before calling Gemini", async ()
   ]);
 });
 
+test("questionCommand refuses questions while AI is disabled", async () => {
+  const replies: string[] = [];
+  let calls = 0;
+  const command = createQuestionCommand(async () => {
+    calls += 1;
+    return "answer";
+  });
+
+  setAiEnabled(false);
+  try {
+    await command(createContext("viewer", "a question", replies));
+  } finally {
+    setAiEnabled(true);
+  }
+
+  assert.equal(calls, 0);
+  assert.deepEqual(replies, ["A IA está desligada no momento."]);
+});
+
 test("questionCommand serializes accepted Gemini requests", async () => {
   let currentTime = 100_000;
   const calls: string[] = [];
@@ -106,12 +164,17 @@ test("questionCommand serializes accepted Gemini requests", async () => {
   currentTime += config.commandCooldownMs + 1;
   const secondCommand = command(createContext("viewer-two", "second question", replies));
   assert.deepEqual(calls, ["first question"]);
+  assert.deepEqual(replies, ["Sua pergunta entrou na fila. Posição: 1."]);
 
   resolveFirstAnswer("first answer");
   await Promise.all([firstCommand, secondCommand]);
 
   assert.deepEqual(calls, ["first question", "second question"]);
-  assert.deepEqual(replies, ["first answer", "second answer"]);
+  assert.deepEqual(replies, [
+    "Sua pergunta entrou na fila. Posição: 1.",
+    "first answer",
+    "second answer",
+  ]);
 });
 
 test("questionCommand rejects requests when the pending queue is full", async () => {
@@ -190,5 +253,69 @@ test("questionCommand never sends a partial answer if it still exceeds the limit
   assert.equal(prompts.length, 2);
   assert.deepEqual(replies, [
     "I could not provide a complete answer within the chat limit. Please try a shorter question.",
+  ]);
+});
+
+test("questionCommand reports queue status and moderator clearing cancels waiting questions", async () => {
+  let currentTime = 100_000;
+  const replies: string[] = [];
+  let resolveFirstAnswer: (answer: string) => void = () => {};
+  let markFirstRequestStarted: () => void = () => {};
+  const firstAnswer = new Promise<string>((resolve) => {
+    resolveFirstAnswer = resolve;
+  });
+  const firstRequestStarted = new Promise<void>((resolve) => {
+    markFirstRequestStarted = resolve;
+  });
+  const command = createQuestionCommand(
+    async (question) => {
+      if (question === "first question") {
+        markFirstRequestStarted();
+        return firstAnswer;
+      }
+      return "unexpected queued answer";
+    },
+    () => currentTime,
+  );
+
+  const firstCommand = command(createContext("viewer-one", "first question", replies));
+  await firstRequestStarted;
+
+  currentTime += config.commandCooldownMs + 1;
+  const queuedCommand = command(createContext("viewer-two", "queued question", replies));
+  assert.deepEqual(command.getQueueStatus(), { active: true, waiting: 1 });
+
+  assert.equal(await command.clearPendingQuestions(), 1);
+  await queuedCommand;
+  assert.deepEqual(command.getQueueStatus(), { active: true, waiting: 0 });
+  assert.ok(replies.includes("Sua pergunta foi removida da fila por um moderador."));
+
+  resolveFirstAnswer("first answer");
+  await firstCommand;
+  assert.deepEqual(command.getQueueStatus(), { active: false, waiting: 0 });
+
+  currentTime += config.commandCooldownMs + 1;
+  await command(createContext("viewer-three", "question after clear", replies));
+  assert.ok(replies.includes("unexpected queued answer"));
+});
+
+test("queueCommand restricts queue controls to moderators", async () => {
+  const replies: string[] = [];
+  const viewerContext = createContext("viewer", "", replies);
+  await queueCommand(viewerContext);
+  await queueCommand({
+    ...viewerContext,
+    tags: { mod: true },
+  });
+  await queueCommand({
+    ...viewerContext,
+    args: ["clear"],
+    text: "clear",
+    tags: { badges: { broadcaster: "1" } },
+  });
+  assert.deepEqual(replies, [
+    "Apenas moderadores e o broadcaster podem consultar ou limpar a fila.",
+    "Fila de perguntas: nenhuma em andamento, 0 aguardando.",
+    "Não há perguntas aguardando para remover.",
   ]);
 });
