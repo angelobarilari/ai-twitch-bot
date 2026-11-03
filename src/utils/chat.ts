@@ -20,6 +20,10 @@ export function remainingSeconds(until: number, now: number): number {
  * @returns An array of trimmed chunks, preferring to split at word boundaries.
  */
 export function splitForTwitch(message: string, maxLength: number): string[] {
+  if (!Number.isSafeInteger(maxLength) || maxLength <= 0) {
+    throw new RangeError("maxLength must be a positive safe integer.");
+  }
+
   const normalized = message.replace(/\s+/g, " ").trim();
   const chunks: string[] = [];
   let remaining = normalized;
