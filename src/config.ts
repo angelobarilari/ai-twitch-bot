@@ -16,7 +16,8 @@ function requireEnv(name: string): string {
 }
 
 function parsePositiveInteger(name: string, value: string | undefined, fallback: number): number {
-  const candidate = value ?? String(fallback);
+  const rawValue = value?.trim();
+  const candidate = rawValue === undefined || rawValue === "" ? String(fallback) : rawValue;
   const parsed = Number(candidate);
 
   if (!Number.isFinite(parsed) || parsed <= 0)
@@ -30,7 +31,8 @@ function parsePositiveSafeInteger(
   value: string | undefined,
   fallback: number,
 ): number {
-  const candidate = value ?? String(fallback);
+  const rawValue = value?.trim();
+  const candidate = rawValue === undefined || rawValue === "" ? String(fallback) : rawValue;
   const parsed = Number(candidate);
 
   if (!Number.isSafeInteger(parsed) || parsed <= 0)

@@ -70,6 +70,26 @@ test("loadConfig defaults the pending question limit", async () => {
   }
 });
 
+test("loadConfig treats whitespace-only numeric values as unset", async () => {
+  const snapshot = { ...process.env };
+  process.env.TWITCH_BOT_USERNAME = "bot";
+  process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
+  process.env.TWITCH_CHANNEL = "#channel";
+  process.env.GEMINI_API_KEY = "abc123";
+  process.env.COMMAND_COOLDOWN_SECONDS = "   ";
+  process.env.USER_COOLDOWN_SECONDS = "\t";
+  process.env.MAX_PENDING_QUESTIONS = "\n";
+
+  try {
+    const { loadConfig } = await import("./config.js");
+    assert.equal(loadConfig().commandCooldownMs, 15000);
+    assert.equal(loadConfig().userCooldownMs, 30000);
+    assert.equal(loadConfig().maxPendingQuestions, 5);
+  } finally {
+    restoreEnv(snapshot);
+  }
+});
+
 test("loadConfig rejects invalid numeric values", async () => {
   const snapshot = { ...process.env };
   process.env.TWITCH_BOT_USERNAME = "bot";
