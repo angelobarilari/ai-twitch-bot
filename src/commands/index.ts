@@ -24,8 +24,11 @@ export function parseCommand(message: string): ParsedCommand | null {
 
   if (!rawCommand?.startsWith("!")) return null;
 
+  const name = rawCommand.slice(1).toLowerCase();
+  if (!name) return null;
+
   return {
-    name: rawCommand.slice(1).toLowerCase(),
+    name,
     args,
     text: trimmedMessage.slice(rawCommand.length).trim(),
   };
@@ -50,13 +53,17 @@ async function handleMessage(
   const command = commands.get(parsedCommand.name);
   if (!command) return;
 
-  await command({
-    channel,
-    tags,
-    args: parsedCommand.args,
-    text: parsedCommand.text,
-    reply: createReply(client, channel),
-  });
+  try {
+    await command({
+      channel,
+      tags,
+      args: parsedCommand.args,
+      text: parsedCommand.text,
+      reply: createReply(client, channel),
+    });
+  } catch (error) {
+    console.error(`Failed to handle Twitch chat command "!${parsedCommand.name}":`, error);
+  }
 }
 
 export function createMessageHandler(client: tmi.Client): MessageHandler {

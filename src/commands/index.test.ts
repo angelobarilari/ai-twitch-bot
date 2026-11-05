@@ -52,6 +52,27 @@ test("parseCommand rejects non-command text", () => {
   assert.equal(parseCommand("hello there"), null);
 });
 
+test("parseCommand rejects a command prefix without a name", () => {
+  assert.equal(parseCommand("!"), null);
+  assert.equal(parseCommand("! \t"), null);
+});
+
+test("message handler ignores malformed, unknown, and self-authored commands", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  const handleMessage = createMessageHandler(client);
+
+  await handleMessage("test_channel", { username: "viewer" }, "!", false);
+  await handleMessage("test_channel", { username: "viewer" }, "!unknown", false);
+  await handleMessage("test_channel", { username: "bot" }, "!help", true);
+
+  assert.deepEqual(replies, []);
+});
+
 test("message handler routes !help to the registered command", async () => {
   const replies: string[] = [];
   const client = new tmi.Client({ channels: [] });
@@ -66,6 +87,27 @@ test("message handler routes !help to the registered command", async () => {
   assert.match(replies[0] ?? "", /!help/);
   assert.match(replies[0] ?? "", /!question/);
   assert.match(replies[0] ?? "", /!about/);
+});
+
+test("message handler logs reply failures without rejecting the event handler", async () => {
+  const previousConsoleError = console.error;
+  const error = new Error("Twitch client is disconnected");
+  const loggedErrors: unknown[][] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async () => {
+    throw error;
+  };
+  console.error = (...args: unknown[]) => {
+    loggedErrors.push(args);
+  };
+
+  try {
+    await createMessageHandler(client)("test_channel", { username: "viewer" }, "!help", false);
+
+    assert.deepEqual(loggedErrors, [['Failed to handle Twitch chat command "!help":', error]]);
+  } finally {
+    console.error = previousConsoleError;
+  }
 });
 
 test("message handler routes !about to the registered command", async () => {
