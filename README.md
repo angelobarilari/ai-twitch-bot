@@ -137,7 +137,7 @@ Checks that the bot is online and responding.
 
 ### `!help`
 
-Lists the available commands in Portuguese.
+Lists the available commands in Portuguese, including moderator-only controls and the configured question, cooldown, and queue limits.
 
 ### `!about`
 
@@ -161,6 +161,10 @@ Example:
 !question what is the capital of Brazil?
 ```
 
+## Command Parsing and Dispatch
+
+The bot trims each incoming message and treats its first whitespace-separated token as a command when it begins with `!`. Command names are matched without regard to case; the remaining text is passed to the command as its arguments. Messages that are not commands, contain only the `!` prefix, use an unknown command name, or were authored by the bot itself are ignored without a reply.
+
 ## Safety and Usage Notes
 
 - Local safety checks and Gemini safety settings are used, but they are not a substitute for human moderation.
@@ -176,7 +180,7 @@ Run the project tests with:
 npm test
 ```
 
-The current automated suite covers configuration validation (including the pending-question limit and whitespace-only numeric values), command parsing, queue behavior, Gemini request handling, and chat-message splitting. The tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
+The current automated suite covers configuration validation (including the pending-question limit and whitespace-only numeric values), command parsing and dispatch, queue behavior, Gemini request handling, and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help` and `!about`, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
 
 Gemini requests emit structured logs with the outcome, duration in milliseconds, and HTTP status when available. These logs intentionally exclude question/answer contents and API credentials.
 

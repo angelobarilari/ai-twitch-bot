@@ -18,14 +18,19 @@ const commands = new Map<string, CommandHandler>([
   ["question", questionCommand],
 ]);
 
+type CommandRegistry = ReadonlyMap<string, CommandHandler>;
+
 export function parseCommand(message: string): ParsedCommand | null {
   const trimmedMessage = message.trim();
   const [rawCommand, ...args] = trimmedMessage.split(/\s+/);
 
   if (!rawCommand?.startsWith("!")) return null;
 
+  const name = rawCommand.slice(1).toLowerCase();
+  if (!name) return null;
+
   return {
-    name: rawCommand.slice(1).toLowerCase(),
+    name,
     args,
     text: trimmedMessage.slice(rawCommand.length).trim(),
   };
@@ -37,6 +42,7 @@ function createReply(client: tmi.Client, channel: string): (response: string) =>
 
 async function handleMessage(
   client: tmi.Client,
+  commandRegistry: CommandRegistry,
   channel: string,
   tags: tmi.ChatUserstate,
   message: string,
@@ -47,18 +53,25 @@ async function handleMessage(
   const parsedCommand = parseCommand(message);
   if (!parsedCommand) return;
 
-  const command = commands.get(parsedCommand.name);
+  const command = commandRegistry.get(parsedCommand.name);
   if (!command) return;
 
-  await command({
-    channel,
-    tags,
-    args: parsedCommand.args,
-    text: parsedCommand.text,
-    reply: createReply(client, channel),
-  });
+  try {
+    await command({
+      channel,
+      tags,
+      args: parsedCommand.args,
+      text: parsedCommand.text,
+      reply: createReply(client, channel),
+    });
+  } catch (error) {
+    console.error(`Failed to handle Twitch chat command "!${parsedCommand.name}":`, error);
+  }
 }
 
-export function createMessageHandler(client: tmi.Client): MessageHandler {
-  return handleMessage.bind(null, client);
+export function createMessageHandler(
+  client: tmi.Client,
+  commandRegistry: CommandRegistry = commands,
+): MessageHandler {
+  return handleMessage.bind(null, client, commandRegistry);
 }
