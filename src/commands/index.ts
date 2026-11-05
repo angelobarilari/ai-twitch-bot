@@ -18,6 +18,8 @@ const commands = new Map<string, CommandHandler>([
   ["question", questionCommand],
 ]);
 
+type CommandRegistry = ReadonlyMap<string, CommandHandler>;
+
 export function parseCommand(message: string): ParsedCommand | null {
   const trimmedMessage = message.trim();
   const [rawCommand, ...args] = trimmedMessage.split(/\s+/);
@@ -40,6 +42,7 @@ function createReply(client: tmi.Client, channel: string): (response: string) =>
 
 async function handleMessage(
   client: tmi.Client,
+  commandRegistry: CommandRegistry,
   channel: string,
   tags: tmi.ChatUserstate,
   message: string,
@@ -50,7 +53,7 @@ async function handleMessage(
   const parsedCommand = parseCommand(message);
   if (!parsedCommand) return;
 
-  const command = commands.get(parsedCommand.name);
+  const command = commandRegistry.get(parsedCommand.name);
   if (!command) return;
 
   try {
@@ -66,6 +69,9 @@ async function handleMessage(
   }
 }
 
-export function createMessageHandler(client: tmi.Client): MessageHandler {
-  return handleMessage.bind(null, client);
+export function createMessageHandler(
+  client: tmi.Client,
+  commandRegistry: CommandRegistry = commands,
+): MessageHandler {
+  return handleMessage.bind(null, client, commandRegistry);
 }

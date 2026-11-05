@@ -89,6 +89,31 @@ test("message handler routes !help to the registered command", async () => {
   assert.match(replies[0] ?? "", /!about/);
 });
 
+test("message handler routes a question through Gemini and replies in chat", async () => {
+  const apiCalls: string[] = [];
+  const sentMessages: Array<{ channel: string; message: string }> = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (channel, message) => {
+    sentMessages.push({ channel, message });
+    return [message];
+  };
+  const command = createQuestionCommand(async (question) => {
+    apiCalls.push(question);
+    return "A fake Gemini answer.";
+  });
+  const handleMessage = createMessageHandler(client, new Map([["question", command]]));
+
+  await handleMessage(
+    "test_channel",
+    { username: "viewer" },
+    "!question What is the capital of Brazil?",
+    false,
+  );
+
+  assert.deepEqual(apiCalls, ["What is the capital of Brazil?"]);
+  assert.deepEqual(sentMessages, [{ channel: "test_channel", message: "A fake Gemini answer." }]);
+});
+
 test("message handler logs reply failures without rejecting the event handler", async () => {
   const previousConsoleError = console.error;
   const error = new Error("Twitch client is disconnected");

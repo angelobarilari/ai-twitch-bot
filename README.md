@@ -137,7 +137,7 @@ Checks that the bot is online and responding.
 
 ### `!help`
 
-Lists the available commands in Portuguese.
+Lists the available commands in Portuguese, including moderator-only controls and the configured question, cooldown, and queue limits.
 
 ### `!about`
 
@@ -180,7 +180,7 @@ Run the project tests with:
 npm test
 ```
 
-The current automated suite covers configuration validation (including the pending-question limit and whitespace-only numeric values), command parsing and dispatch, queue behavior, Gemini request handling, and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help` and `!about`, and ignoring malformed, unknown, and self-authored commands. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
+The current automated suite covers configuration validation (including the pending-question limit and whitespace-only numeric values), command parsing and dispatch, queue behavior, Gemini request handling, and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help` and `!about`, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
 
 Gemini requests emit structured logs with the outcome, duration in milliseconds, and HTTP status when available. These logs intentionally exclude question/answer contents and API credentials.
 
