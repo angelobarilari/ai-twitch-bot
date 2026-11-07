@@ -144,3 +144,92 @@ test("askGemini rejects responses truncated by the output token limit", async ()
     console.error = previousConsoleError;
   }
 });
+
+test("askGemini logs a timeout without exposing request content", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const previousConsoleError = console.error;
+  const logs: string[] = [];
+  console.error = (message?: unknown) => {
+    logs.push(String(message));
+  };
+
+  try {
+    const askGeminiWithTimeout = createGeminiRequester({
+      timeoutMs: 1,
+      fetch: async (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Request timed out", "AbortError")),
+            { once: true },
+          );
+        }),
+    });
+
+    assert.equal(await askGeminiWithTimeout("private timeout question"), null);
+    const requestLog = JSON.parse(logs[0] ?? "{}") as Record<string, unknown>;
+    assert.equal(requestLog.outcome, "timeout");
+    assert.equal(typeof requestLog.durationMs, "number");
+    assert.ok(!JSON.stringify(requestLog).includes("private timeout question"));
+  } finally {
+    console.error = previousConsoleError;
+  }
+});
+
+test("askGemini logs network failures without exposing request content", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const previousConsoleError = console.error;
+  const logs: string[] = [];
+  console.error = (message?: unknown) => {
+    logs.push(String(message));
+  };
+
+  try {
+    const askGeminiWithNetworkFailure = createGeminiRequester({
+      fetch: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+
+    assert.equal(await askGeminiWithNetworkFailure("private network question"), null);
+    const requestLog = JSON.parse(logs[0] ?? "{}") as Record<string, unknown>;
+    assert.equal(requestLog.outcome, "network_error");
+    assert.ok(!JSON.stringify(requestLog).includes("private network question"));
+  } finally {
+    console.error = previousConsoleError;
+  }
+});
+
+test("askGemini classifies invalid JSON and malformed payloads as invalid responses", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const previousConsoleError = console.error;
+  const logs: string[] = [];
+  const responses = [
+    new Response("{invalid json", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+    new Response(JSON.stringify({ candidates: {} }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  ];
+  console.error = (message?: unknown) => {
+    logs.push(String(message));
+  };
+
+  try {
+    const askGeminiWithMalformedResponses = createGeminiRequester({
+      fetch: async () => responses.shift() as Response,
+    });
+
+    assert.equal(await askGeminiWithMalformedResponses("question one"), null);
+    assert.equal(await askGeminiWithMalformedResponses("question two"), null);
+    assert.deepEqual(
+      logs.map((entry) => (JSON.parse(entry) as Record<string, unknown>).outcome),
+      ["invalid_response", "invalid_response"],
+    );
+  } finally {
+    console.error = previousConsoleError;
+  }
+});
