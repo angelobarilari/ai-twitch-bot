@@ -1,5 +1,8 @@
 ﻿import assert from "node:assert/strict";
-import { before, test } from "node:test";
+import { after, before, test } from "node:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import tmi from "tmi.js";
 import type { CommandContext } from "../types/commands.js";
 
@@ -9,6 +12,8 @@ let config: typeof import("../config.js").config;
 let setAiEnabled: typeof import("./ai-state.js").setAiEnabled;
 let queueCommand: typeof import("./queue.js").queueCommand;
 let createMessageHandler: typeof import("./index.js").createMessageHandler;
+let stateDirectory: string;
+let previousStateFile: string | undefined;
 
 before(async () => {
   const requiredVariables = [
@@ -18,11 +23,14 @@ before(async () => {
     "GEMINI_API_KEY",
   ] as const;
   const previousValues = new Map(requiredVariables.map((name) => [name, process.env[name]]));
+  stateDirectory = mkdtempSync(join(tmpdir(), "ai-twitch-bot-command-test-"));
+  previousStateFile = process.env.AI_STATE_FILE;
 
   process.env.TWITCH_BOT_USERNAME = "test-bot";
   process.env.TWITCH_OAUTH_TOKEN = "oauth:test-token";
   process.env.TWITCH_CHANNEL = "test_channel";
   process.env.GEMINI_API_KEY = "test-api-key";
+  process.env.AI_STATE_FILE = join(stateDirectory, "state.json");
 
   try {
     ({ parseCommand } = await import("./index.js"));
@@ -38,6 +46,12 @@ before(async () => {
       else process.env[name] = value;
     }
   }
+});
+
+after(() => {
+  if (typeof previousStateFile === "undefined") delete process.env.AI_STATE_FILE;
+  else process.env.AI_STATE_FILE = previousStateFile;
+  rmSync(stateDirectory, { recursive: true, force: true });
 });
 
 test("parseCommand handles command text and arguments", () => {

@@ -20,6 +20,13 @@ export const aiCommand: CommandHandler = async ({ args, reply, tags }): Promise<
   }
 
   const enabled = action === "on";
-  setAiEnabled(enabled);
+  try {
+    setAiEnabled(enabled);
+  } catch (error) {
+    console.error("Failed to persist AI state:", error);
+    await reply("Não foi possível salvar o estado da IA; a configuração anterior foi mantida.");
+    return;
+  }
+
   await reply(`IA ${enabled ? "ligada" : "desligada"}.`);
 };

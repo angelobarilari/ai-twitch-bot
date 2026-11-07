@@ -1,8 +1,30 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { after, before, test } from "node:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { CommandContext } from "../types/commands.js";
-import { aiCommand } from "./ai.js";
-import { isAiEnabled, setAiEnabled } from "./ai-state.js";
+
+let aiCommand: typeof import("./ai.js").aiCommand;
+let createAiStateStore: typeof import("./ai-state.js").createAiStateStore;
+let isAiEnabled: typeof import("./ai-state.js").isAiEnabled;
+let setAiEnabled: typeof import("./ai-state.js").setAiEnabled;
+let stateDirectory: string;
+let previousStateFile: string | undefined;
+
+before(async () => {
+  stateDirectory = mkdtempSync(join(tmpdir(), "ai-twitch-bot-test-"));
+  previousStateFile = process.env.AI_STATE_FILE;
+  process.env.AI_STATE_FILE = join(stateDirectory, "global-state.json");
+  ({ aiCommand } = await import("./ai.js"));
+  ({ createAiStateStore, isAiEnabled, setAiEnabled } = await import("./ai-state.js"));
+});
+
+after(() => {
+  if (typeof previousStateFile === "undefined") delete process.env.AI_STATE_FILE;
+  else process.env.AI_STATE_FILE = previousStateFile;
+  rmSync(stateDirectory, { recursive: true, force: true });
+});
 
 function createContext(
   args: string[],
@@ -51,4 +73,54 @@ test("aiCommand rejects viewers and invalid actions", async () => {
     "Uso: !ai on ou !ai off.",
     "Uso: !ai on ou !ai off.",
   ]);
+});
+
+test("AI state defaults to enabled and persists changes across store instances", () => {
+  const filePath = join(stateDirectory, "persistent-state.json");
+  const firstStore = createAiStateStore(filePath);
+
+  assert.equal(firstStore.isEnabled(), true);
+  firstStore.setEnabled(false);
+
+  assert.equal(readFileSync(filePath, "utf8"), '{"enabled":false}\n');
+  assert.equal(createAiStateStore(filePath).isEnabled(), false);
+});
+
+test("AI state rejects malformed or invalid persisted data", () => {
+  const malformedPath = join(stateDirectory, "malformed-state.json");
+  const invalidPath = join(stateDirectory, "invalid-state.json");
+  writeFileSync(malformedPath, "{");
+  writeFileSync(invalidPath, JSON.stringify({ enabled: "false" }));
+
+  assert.throws(() => createAiStateStore(malformedPath), /not valid JSON/);
+  assert.throws(() => createAiStateStore(invalidPath), /must contain a boolean/);
+});
+
+test("AI state remains unchanged when persistence fails", () => {
+  const filePath = join(stateDirectory, "missing-directory", "state.json");
+  const store = createAiStateStore(filePath);
+
+  assert.throws(() => store.setEnabled(false), /Failed to persist AI state/);
+  assert.equal(store.isEnabled(), true);
+});
+
+test("aiCommand reports persistence failures without changing the state", async () => {
+  const previousConsoleError = console.error;
+  const replies: string[] = [];
+  const loggedErrors: unknown[][] = [];
+  rmSync(stateDirectory, { recursive: true, force: true });
+  console.error = (...args: unknown[]) => {
+    loggedErrors.push(args);
+  };
+
+  try {
+    await aiCommand(createContext(["off"], { mod: true }, replies));
+    assert.equal(isAiEnabled(), true);
+    assert.deepEqual(replies, [
+      "Não foi possível salvar o estado da IA; a configuração anterior foi mantida.",
+    ]);
+    assert.equal(loggedErrors.length, 1);
+  } finally {
+    console.error = previousConsoleError;
+  }
 });
