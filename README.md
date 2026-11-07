@@ -12,7 +12,7 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 - Modular command architecture for commands and queue logic
 - Gemini API integration for chat responses with sanitized, structured request logging
 - Configurable AI response language (Brazilian Portuguese by default)
-- `!help`, `!about`, `!ping`, `!question`, `!ai`, and `!queue` commands
+- `!help`, `!about`, `!ping`, `!status`, `!question`, `!ai`, and `!queue` commands
 - Moderator-only AI controls and queue inspection/clearing
 - Bounded pending-question queue with limit validation via `MAX_PENDING_QUESTIONS`
 - Automatic Twitch reconnection and graceful shutdown on termination signals
@@ -23,7 +23,7 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 
 ## Current Implementation Status
 
-This branch delivers the working chat-bot flow for local Twitch use: viewers can ask questions, moderators can enable or disable the AI and inspect/clear the queue, and each Gemini call is logged with outcome, duration, and HTTP status without exposing sensitive request content.
+The bot supports a complete Twitch chat flow: viewers can ask questions and check whether AI responses are enabled, while moderators can control the AI and inspect or clear the queue. Failed Gemini requests and Twitch replies are logged and handled so subsequent queued questions can continue. Gemini request logs include outcome, duration, and HTTP status without exposing sensitive request content.
 
 ## Tech Stack
 
@@ -52,6 +52,7 @@ This branch delivers the working chat-bot flow for local Twitch use: viewers can
 │   │   ├── queue.ts
 │   │   ├── ping.ts
 │   │   ├── question.ts
+│   │   ├── status.ts
 │   ├── types/
 │   │   └── commands.ts
 │   ├── services/
@@ -135,6 +136,10 @@ Notes:
 
 Checks that the bot is online and responding.
 
+### `!status`
+
+Shows whether AI question responses are currently enabled. This command is available to all viewers and does not expose queue details or moderator controls.
+
 ### `!help`
 
 Lists the available commands in Portuguese, including moderator-only controls and the configured question, cooldown, and queue limits.
@@ -180,7 +185,7 @@ Run the project tests with:
 npm test
 ```
 
-The current automated suite covers configuration validation (including the pending-question limit and whitespace-only numeric values), command parsing and dispatch, queue behavior, Gemini request handling, and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help` and `!about`, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
+The current automated suite covers configuration validation (including the pending-question limit and whitespace-only numeric values), command parsing and dispatch, queue behavior, Gemini request handling, and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help`, `!about`, and the public `!status` command, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Failure-path tests cover unavailable Gemini requests, Twitch reply failures, and continued queue processing. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
 
 Gemini requests emit structured logs with the outcome, duration in milliseconds, and HTTP status when available. These logs intentionally exclude question/answer contents and API credentials.
 

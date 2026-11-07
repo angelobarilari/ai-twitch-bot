@@ -6,6 +6,7 @@ import { helpCommand } from "./help.js";
 import { pingCommand } from "./ping.js";
 import { queueCommand } from "./queue.js";
 import { questionCommand } from "./question.js";
+import { statusCommand } from "./status.js";
 
 export type { MessageHandler, ParsedCommand } from "../types/commands.js";
 
@@ -16,6 +17,7 @@ const commands = new Map<string, CommandHandler>([
   ["ping", pingCommand],
   ["queue", queueCommand],
   ["question", questionCommand],
+  ["status", statusCommand],
 ]);
 
 type CommandRegistry = ReadonlyMap<string, CommandHandler>;
