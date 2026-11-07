@@ -89,6 +89,24 @@ test("message handler routes !help to the registered command", async () => {
   assert.match(replies[0] ?? "", /!about/);
 });
 
+test("viewers can check whether AI responses are enabled with !status", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  const handleMessage = createMessageHandler(client);
+
+  setAiEnabled(true);
+  await handleMessage("test_channel", { username: "viewer" }, "!status", false);
+  setAiEnabled(false);
+  await handleMessage("test_channel", { username: "viewer" }, "!status", false);
+  setAiEnabled(true);
+
+  assert.deepEqual(replies, ["A IA está ligada.", "A IA está desligada."]);
+});
+
 test("message handler routes a question through Gemini and replies in chat", async () => {
   const apiCalls: string[] = [];
   const sentMessages: Array<{ channel: string; message: string }> = [];
@@ -112,6 +130,85 @@ test("message handler routes a question through Gemini and replies in chat", asy
 
   assert.deepEqual(apiCalls, ["What is the capital of Brazil?"]);
   assert.deepEqual(sentMessages, [{ channel: "test_channel", message: "A fake Gemini answer." }]);
+});
+
+test("question flow reports Gemini failure and continues processing later requests", async () => {
+  const previousConsoleError = console.error;
+  const loggedErrors: unknown[][] = [];
+  const replies: string[] = [];
+  let currentTime = 100_000;
+  let calls = 0;
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  console.error = (...args: unknown[]) => {
+    loggedErrors.push(args);
+  };
+  const questionCommand = createQuestionCommand(
+    async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("Gemini unavailable");
+      return "A later answer.";
+    },
+    () => currentTime,
+  );
+  const handleMessage = createMessageHandler(client, new Map([["question", questionCommand]]));
+
+  try {
+    await handleMessage("test_channel", { username: "viewer-one" }, "!question first", false);
+    currentTime += config.commandCooldownMs + 1;
+    await handleMessage("test_channel", { username: "viewer-two" }, "!question second", false);
+
+    assert.deepEqual(replies, [
+      "I could not query the AI right now. Please try again later.",
+      "A later answer.",
+    ]);
+    assert.equal(calls, 2);
+    assert.equal(loggedErrors.length, 1);
+  } finally {
+    console.error = previousConsoleError;
+  }
+});
+
+test("question flow contains Twitch reply failures and remains usable", async () => {
+  const previousConsoleError = console.error;
+  const error = new Error("Twitch client is disconnected");
+  const loggedErrors: unknown[][] = [];
+  const replies: string[] = [];
+  let currentTime = 100_000;
+  let failReplies = true;
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    if (failReplies) throw error;
+    replies.push(message);
+    return [message];
+  };
+  console.error = (...args: unknown[]) => {
+    loggedErrors.push(args);
+  };
+  const questionCommand = createQuestionCommand(
+    async () => "A fake answer.",
+    () => currentTime,
+  );
+  const handleMessage = createMessageHandler(client, new Map([["question", questionCommand]]));
+
+  try {
+    await handleMessage("test_channel", { username: "viewer-one" }, "!question first", false);
+    failReplies = false;
+    currentTime += config.commandCooldownMs + 1;
+    await handleMessage("test_channel", { username: "viewer-two" }, "!question second", false);
+
+    assert.deepEqual(replies, ["A fake answer."]);
+    assert.deepEqual(
+      loggedErrors.map((entry) => entry[0]),
+      ["Error while querying the AI:", 'Failed to handle Twitch chat command "!question":'],
+    );
+    assert.ok(loggedErrors.every((entry) => entry[1] === error));
+  } finally {
+    console.error = previousConsoleError;
+  }
 });
 
 test("message handler logs reply failures without rejecting the event handler", async () => {
