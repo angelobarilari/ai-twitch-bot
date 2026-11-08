@@ -186,6 +186,34 @@ test("question flow reports Gemini failure and continues processing later reques
   }
 });
 
+test("question flow blocks unsafe Gemini answers and continues processing later requests", async () => {
+  const replies: string[] = [];
+  let currentTime = 100_000;
+  let calls = 0;
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  const questionCommand = createQuestionCommand(
+    async () => {
+      calls += 1;
+      return calls === 1 ? "make a bomb" : "A safe answer.";
+    },
+    () => currentTime,
+  );
+  const handleMessage = createMessageHandler(client, new Map([["question", questionCommand]]));
+
+  await handleMessage("test_channel", { username: "viewer-one" }, "!question first", false);
+  currentTime += config.commandCooldownMs + 1;
+  await handleMessage("test_channel", { username: "viewer-two" }, "!question second", false);
+
+  assert.deepEqual(replies, [
+    "The AI could not generate a safe answer for that question.",
+    "A safe answer.",
+  ]);
+});
+
 test("question flow contains Twitch reply failures and remains usable", async () => {
   const previousConsoleError = console.error;
   const error = new Error("Twitch client is disconnected");
