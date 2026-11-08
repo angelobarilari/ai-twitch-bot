@@ -115,6 +115,7 @@ TWITCH_CHANNEL=your_channel_name
 GEMINI_API_KEY=your_google_ai_studio_key
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_LANGUAGE=Portuguese (Brazil)
+AI_STATE_FILE=.ai-state.json
 COMMAND_COOLDOWN_SECONDS=15
 USER_COOLDOWN_SECONDS=30
 MAX_QUESTION_LENGTH=300
@@ -126,6 +127,8 @@ Notes:
 
 - `TWITCH_CHANNEL` can be passed as `#channel` or `channel`.
 - `GEMINI_LANGUAGE` controls the language used for AI responses; it defaults to `Portuguese (Brazil)`.
+- `AI_STATE_FILE` stores whether AI responses are enabled; it defaults to `.ai-state.json` in the working directory, which is git-ignored. If it does not exist, the AI defaults to enabled. If you choose a custom path, keep that file out of version control.
+- If the state file is unreadable or contains invalid data, startup reports an error instead of silently resetting the moderator-selected state.
 - Numeric values must be positive finite numbers. `MAX_PENDING_QUESTIONS` must be a positive safe integer.
 - `MAX_PENDING_QUESTIONS` limits the total number of accepted questions being processed or waiting in the queue; its default is `5`.
 - Keep `.env` out of version control and never commit real secrets.
@@ -150,7 +153,7 @@ Explains what the bot does and points viewers to `!help`.
 
 ### `!ai on` / `!ai off`
 
-Enables or disables AI questions. Only moderators and the broadcaster can use this command.
+Enables or disables AI questions. Only moderators and the broadcaster can use this command. The enabled state is persisted in `AI_STATE_FILE` across restarts.
 
 ### `!queue` / `!queue clear`
 
@@ -185,7 +188,7 @@ Run the project tests with:
 npm test
 ```
 
-The current automated suite covers configuration validation (including the pending-question limit and whitespace-only numeric values), command parsing and dispatch, queue behavior, Gemini request handling, and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help`, `!about`, and the public `!status` command, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Failure-path tests cover Gemini HTTP, timeout, network, invalid-payload, and unsafe-answer responses; Twitch reply failures; and continued queue processing. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
+The current automated suite covers AI-state persistence across store instances, default state, invalid state files, and write failures; configuration validation (including the pending-question limit and whitespace-only numeric values); command parsing and dispatch; queue behavior; Gemini request handling; and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help`, `!about`, and the public `!status` command, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Failure-path tests cover unavailable Gemini requests, Twitch reply failures, and continued queue processing. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
 
 Gemini requests emit structured logs with the outcome, duration in milliseconds, and HTTP status when available. These logs intentionally exclude question/answer contents and API credentials.
 
