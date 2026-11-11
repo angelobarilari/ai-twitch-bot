@@ -117,7 +117,7 @@ export function createQuestionCommand(
     const currentTime = now();
 
     if (!isAiEnabled()) {
-      await reply("A IA está desligada no momento.");
+      await reply("The AI is currently disabled.");
       return;
     }
 
@@ -167,7 +167,7 @@ export function createQuestionCommand(
     });
 
     if (queuedPosition !== null) {
-      await reply(`Sua pergunta entrou na fila. Posição: ${queuedPosition}.`);
+      await reply(`Your question was added to the queue. Position: ${queuedPosition}.`);
     }
 
     await responseTask;
@@ -185,7 +185,7 @@ export function createQuestionCommand(
       await Promise.all(
         removedQuestions.map(async ({ resolve, reply }) => {
           resolve();
-          await reply("Sua pergunta foi removida da fila por um moderador.");
+          await reply("Your question was removed from the queue by a moderator.");
         }),
       );
 

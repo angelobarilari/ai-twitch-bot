@@ -9,6 +9,6 @@ import type { CommandHandler } from "../types/commands.js";
  */
 export const helpCommand: CommandHandler = async ({ reply }): Promise<void> => {
   await reply(
-    `!help ajuda; !about sobre; !ping conexão; !status estado IA; !language <idioma|auto> idioma global; !question <pergunta> máx. ${config.maxQuestionLength} caracteres; !ai [on|off] e !queue [clear] (moderadores). Cooldown: ${config.commandCooldownMs / 1000}s global/${config.userCooldownMs / 1000}s por usuário; fila máx. ${config.maxPendingQuestions}.`,
+    `!help command list; !about bot info; !ping connection; !status AI status; !language <language|auto> channel language; !question <question> max ${config.maxQuestionLength} characters; !ai [on|off] and !queue [clear] (moderators). Cooldown: ${config.commandCooldownMs / 1000}s global/${config.userCooldownMs / 1000}s per user; queue max ${config.maxPendingQuestions}.`,
   );
 };

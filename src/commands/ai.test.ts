@@ -53,9 +53,9 @@ test("aiCommand lets moderators toggle the AI and reports its state", async () =
   assert.equal(isAiEnabled(), true);
 
   assert.deepEqual(replies, [
-    "IA desligada.",
-    "A IA está desligada. Use !ai on ou !ai off.",
-    "IA ligada.",
+    "AI disabled.",
+    "The AI is currently disabled. Use !ai on or !ai off.",
+    "AI enabled.",
   ]);
 });
 
@@ -69,9 +69,9 @@ test("aiCommand rejects viewers and invalid actions", async () => {
 
   assert.equal(isAiEnabled(), true);
   assert.deepEqual(replies, [
-    "Apenas moderadores e o broadcaster podem controlar a IA.",
-    "Uso: !ai on ou !ai off.",
-    "Uso: !ai on ou !ai off.",
+    "Only moderators and the broadcaster can control the AI.",
+    "Usage: !ai on or !ai off.",
+    "Usage: !ai on or !ai off.",
   ]);
 });
 
@@ -116,9 +116,7 @@ test("aiCommand reports persistence failures without changing the state", async 
   try {
     await aiCommand(createContext(["off"], { mod: true }, replies));
     assert.equal(isAiEnabled(), true);
-    assert.deepEqual(replies, [
-      "Não foi possível salvar o estado da IA; a configuração anterior foi mantida.",
-    ]);
+    assert.deepEqual(replies, ["Could not save the AI state; the previous setting was kept."]);
     assert.equal(loggedErrors.length, 1);
   } finally {
     console.error = previousConsoleError;

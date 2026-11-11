@@ -8,5 +8,5 @@ import { isAiEnabled } from "./ai-state.js";
  * @returns A promise that resolves after the current status is sent.
  */
 export const statusCommand: CommandHandler = async ({ reply }): Promise<void> => {
-  await reply(`A IA está ${isAiEnabled() ? "ligada" : "desligada"}.`);
+  await reply(`The AI is ${isAiEnabled() ? "enabled" : "disabled"}.`);
 };

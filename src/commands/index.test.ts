@@ -127,7 +127,7 @@ test("viewers can check whether AI responses are enabled with !status", async ()
   await handleMessage("test_channel", { username: "viewer" }, "!status", false);
   setAiEnabled(true);
 
-  assert.deepEqual(replies, ["A IA está ligada.", "A IA está desligada."]);
+  assert.deepEqual(replies, ["The AI is enabled.", "The AI is disabled."]);
 });
 
 test("viewers can set and reset the channel-wide response language", async () => {
@@ -343,7 +343,7 @@ test("message handler routes !about to the registered command", async () => {
   await createMessageHandler(client)("test_channel", { username: "viewer" }, "!about", false);
 
   assert.deepEqual(replies, [
-    "Sou um bot de chat com IA para Twitch. Uso o Gemini para responder perguntas de forma breve; use !help para ver os comandos.",
+    "I am an AI chat bot for Twitch. I use Gemini to answer questions briefly; use !help to see the available commands.",
   ]);
 });
 
@@ -395,7 +395,7 @@ test("questionCommand refuses questions while AI is disabled", async () => {
   }
 
   assert.equal(calls, 0);
-  assert.deepEqual(replies, ["A IA está desligada no momento."]);
+  assert.deepEqual(replies, ["The AI is currently disabled."]);
 });
 
 test("questionCommand serializes accepted Gemini requests", async () => {
@@ -428,14 +428,14 @@ test("questionCommand serializes accepted Gemini requests", async () => {
   currentTime += config.commandCooldownMs + 1;
   const secondCommand = command(createContext("viewer-two", "second question", replies));
   assert.deepEqual(calls, ["first question"]);
-  assert.deepEqual(replies, ["Sua pergunta entrou na fila. Posição: 1."]);
+  assert.deepEqual(replies, ["Your question was added to the queue. Position: 1."]);
 
   resolveFirstAnswer("first answer");
   await Promise.all([firstCommand, secondCommand]);
 
   assert.deepEqual(calls, ["first question", "second question"]);
   assert.deepEqual(replies, [
-    "Sua pergunta entrou na fila. Posição: 1.",
+    "Your question was added to the queue. Position: 1.",
     "first answer",
     "second answer",
   ]);
@@ -552,7 +552,7 @@ test("questionCommand reports queue status and moderator clearing cancels waitin
   assert.equal(await command.clearPendingQuestions(), 1);
   await queuedCommand;
   assert.deepEqual(command.getQueueStatus(), { active: true, waiting: 0 });
-  assert.ok(replies.includes("Sua pergunta foi removida da fila por um moderador."));
+  assert.ok(replies.includes("Your question was removed from the queue by a moderator."));
 
   resolveFirstAnswer("first answer");
   await firstCommand;
@@ -578,8 +578,8 @@ test("queueCommand restricts queue controls to moderators", async () => {
     tags: { badges: { broadcaster: "1" } },
   });
   assert.deepEqual(replies, [
-    "Apenas moderadores e o broadcaster podem consultar ou limpar a fila.",
-    "Fila de perguntas: nenhuma em andamento, 0 aguardando.",
-    "Não há perguntas aguardando para remover.",
+    "Only moderators and the broadcaster can view or clear the queue.",
+    "Question queue: none in progress, 0 waiting.",
+    "There are no waiting questions to remove.",
   ]);
 });

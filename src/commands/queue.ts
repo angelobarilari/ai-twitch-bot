@@ -10,13 +10,13 @@ import { questionCommand } from "./question.js";
  */
 export const queueCommand: CommandHandler = async ({ args, reply, tags }): Promise<void> => {
   if (!isModerator(tags)) {
-    await reply("Apenas moderadores e o broadcaster podem consultar ou limpar a fila.");
+    await reply("Only moderators and the broadcaster can view or clear the queue.");
     return;
   }
 
   const action = args[0]?.toLowerCase();
   if (action && action !== "clear") {
-    await reply("Uso: !queue ou !queue clear.");
+    await reply("Usage: !queue or !queue clear.");
     return;
   }
 
@@ -24,14 +24,14 @@ export const queueCommand: CommandHandler = async ({ args, reply, tags }): Promi
     const removed = await questionCommand.clearPendingQuestions();
     await reply(
       removed === 0
-        ? "Não há perguntas aguardando para remover."
-        : `${removed} ${removed === 1 ? "pergunta removida" : "perguntas removidas"} da fila.`,
+        ? "There are no waiting questions to remove."
+        : `${removed} ${removed === 1 ? "question removed" : "questions removed"} from the queue.`,
     );
     return;
   }
 
   const { active, waiting } = questionCommand.getQueueStatus();
   await reply(
-    `Fila de perguntas: ${active ? "1 em andamento" : "nenhuma em andamento"}, ${waiting} aguardando.`,
+    `Question queue: ${active ? "1 in progress" : "none in progress"}, ${waiting} waiting.`,
   );
 };

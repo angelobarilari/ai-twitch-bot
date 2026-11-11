@@ -53,7 +53,7 @@ test("helpCommand lists commands, permissions, and configured limits", async () 
   await helpCommand(context);
 
   assert.deepEqual(replies, [
-    `!help ajuda; !about sobre; !ping conexão; !status estado IA; !language <idioma|auto> idioma global; !question <pergunta> máx. ${config.maxQuestionLength} caracteres; !ai [on|off] e !queue [clear] (moderadores). Cooldown: ${config.commandCooldownMs / 1000}s global/${config.userCooldownMs / 1000}s por usuário; fila máx. ${config.maxPendingQuestions}.`,
+    `!help command list; !about bot info; !ping connection; !status AI status; !language <language|auto> channel language; !question <question> max ${config.maxQuestionLength} characters; !ai [on|off] and !queue [clear] (moderators). Cooldown: ${config.commandCooldownMs / 1000}s global/${config.userCooldownMs / 1000}s per user; queue max ${config.maxPendingQuestions}.`,
   ]);
   assert.ok(replies[0] && replies[0].length <= 500);
 });

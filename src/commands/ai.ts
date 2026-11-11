@@ -10,18 +10,20 @@ import { isModerator } from "./permissions.js";
  */
 export const aiCommand: CommandHandler = async ({ args, reply, tags }): Promise<void> => {
   if (!isModerator(tags)) {
-    await reply("Apenas moderadores e o broadcaster podem controlar a IA.");
+    await reply("Only moderators and the broadcaster can control the AI.");
     return;
   }
 
   const action = args[0]?.toLowerCase();
   if (args.length === 0) {
-    await reply(`A IA está ${isAiEnabled() ? "ligada" : "desligada"}. Use !ai on ou !ai off.`);
+    await reply(
+      `The AI is currently ${isAiEnabled() ? "enabled" : "disabled"}. Use !ai on or !ai off.`,
+    );
     return;
   }
 
   if (args.length !== 1 || (action !== "on" && action !== "off")) {
-    await reply("Uso: !ai on ou !ai off.");
+    await reply("Usage: !ai on or !ai off.");
     return;
   }
 
@@ -30,9 +32,9 @@ export const aiCommand: CommandHandler = async ({ args, reply, tags }): Promise<
     setAiEnabled(enabled);
   } catch (error) {
     console.error("Failed to persist AI state:", error);
-    await reply("Não foi possível salvar o estado da IA; a configuração anterior foi mantida.");
+    await reply("Could not save the AI state; the previous setting was kept.");
     return;
   }
 
-  await reply(`IA ${enabled ? "ligada" : "desligada"}.`);
+  await reply(`AI ${enabled ? "enabled" : "disabled"}.`);
 };

@@ -164,9 +164,11 @@ Examples:
 
 Calling `!language` without an argument shows the current setting. Command confirmations and usage errors are sent in English, regardless of the selected response language.
 
+All built-in bot messages, including command replies, help text, and error messages, are in English. Generated AI answers follow the selected response language; with `auto`, they match each question's language.
+
 ### `!help`
 
-Lists the available commands in Portuguese, including moderator-only controls and the configured question, cooldown, and queue limits.
+Lists the available commands in English, including moderator-only controls and the configured question, cooldown, and queue limits.
 
 ### `!about`
 
