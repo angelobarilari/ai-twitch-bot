@@ -2,6 +2,12 @@ import type { CommandHandler } from "../types/commands.js";
 import { isAiEnabled, setAiEnabled } from "./ai-state.js";
 import { isModerator } from "./permissions.js";
 
+/**
+ * Handles the moderator-only !ai command for reading or changing AI state.
+ *
+ * @param context Command arguments, author metadata, and chat reply function.
+ * @returns A promise that resolves after the command response is sent.
+ */
 export const aiCommand: CommandHandler = async ({ args, reply, tags }): Promise<void> => {
   if (!isModerator(tags)) {
     await reply("Apenas moderadores e o broadcaster podem controlar a IA.");

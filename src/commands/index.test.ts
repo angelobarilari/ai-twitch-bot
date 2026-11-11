@@ -12,8 +12,11 @@ let config: typeof import("../config.js").config;
 let setAiEnabled: typeof import("./ai-state.js").setAiEnabled;
 let queueCommand: typeof import("./queue.js").queueCommand;
 let createMessageHandler: typeof import("./index.js").createMessageHandler;
+let getResponseLanguage: typeof import("../services/response-language.js").getResponseLanguage;
+let createResponseLanguageStore: typeof import("../services/response-language.js").createResponseLanguageStore;
 let stateDirectory: string;
 let previousStateFile: string | undefined;
+let previousLanguageFile: string | undefined;
 
 before(async () => {
   const requiredVariables = [
@@ -25,18 +28,22 @@ before(async () => {
   const previousValues = new Map(requiredVariables.map((name) => [name, process.env[name]]));
   stateDirectory = mkdtempSync(join(tmpdir(), "ai-twitch-bot-command-test-"));
   previousStateFile = process.env.AI_STATE_FILE;
+  previousLanguageFile = process.env.AI_LANGUAGE_FILE;
 
   process.env.TWITCH_BOT_USERNAME = "test-bot";
   process.env.TWITCH_OAUTH_TOKEN = "oauth:test-token";
   process.env.TWITCH_CHANNEL = "test_channel";
   process.env.GEMINI_API_KEY = "test-api-key";
   process.env.AI_STATE_FILE = join(stateDirectory, "state.json");
+  process.env.AI_LANGUAGE_FILE = join(stateDirectory, "language.json");
 
   try {
     ({ parseCommand } = await import("./index.js"));
     ({ createQuestionCommand } = await import("./question.js"));
     ({ config } = await import("../config.js"));
     ({ setAiEnabled } = await import("./ai-state.js"));
+    ({ getResponseLanguage } = await import("../services/response-language.js"));
+    ({ createResponseLanguageStore } = await import("../services/response-language.js"));
     ({ queueCommand } = await import("./queue.js"));
     ({ createMessageHandler } = await import("./index.js"));
     setAiEnabled(true);
@@ -51,6 +58,8 @@ before(async () => {
 after(() => {
   if (typeof previousStateFile === "undefined") delete process.env.AI_STATE_FILE;
   else process.env.AI_STATE_FILE = previousStateFile;
+  if (typeof previousLanguageFile === "undefined") delete process.env.AI_LANGUAGE_FILE;
+  else process.env.AI_LANGUAGE_FILE = previousLanguageFile;
   rmSync(stateDirectory, { recursive: true, force: true });
 });
 
@@ -119,6 +128,55 @@ test("viewers can check whether AI responses are enabled with !status", async ()
   setAiEnabled(true);
 
   assert.deepEqual(replies, ["A IA está ligada.", "A IA está desligada."]);
+});
+
+test("viewers can set and reset the channel-wide response language", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  const handleMessage = createMessageHandler(client);
+
+  await handleMessage("test_channel", { username: "viewer-one" }, "!language English", false);
+  assert.equal(getResponseLanguage(), "English");
+  await handleMessage(
+    "test_channel",
+    { username: "viewer-two" },
+    "!language Portuguese (Brazil)",
+    false,
+  );
+  assert.equal(getResponseLanguage(), "Portuguese (Brazil)");
+  await handleMessage("test_channel", { username: "viewer-three" }, "!language auto", false);
+  assert.equal(getResponseLanguage(), "auto");
+  assert.equal(createResponseLanguageStore(join(stateDirectory, "language.json")).get(), "auto");
+
+  assert.deepEqual(replies, [
+    "Response language set to English.",
+    "Response language set to Portuguese (Brazil).",
+    "Responses will follow the language of each question.",
+  ]);
+});
+
+test("language command reports current language and rejects invalid values", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  const handleMessage = createMessageHandler(client);
+
+  await handleMessage("test_channel", { username: "viewer" }, "!language Spanish", false);
+  await handleMessage("test_channel", { username: "viewer" }, "!language", false);
+  await handleMessage("test_channel", { username: "viewer" }, `!language ${"x".repeat(41)}`, false);
+  assert.equal(getResponseLanguage(), "Spanish");
+  assert.deepEqual(replies, [
+    "Response language set to Spanish.",
+    "Current response language: Spanish. Use !language <language> or !language auto.",
+    "Usage: !language <language> or !language auto (maximum 40 characters).",
+  ]);
 });
 
 test("message handler routes a question through Gemini and replies in chat", async () => {

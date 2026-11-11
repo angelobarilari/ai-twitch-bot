@@ -11,8 +11,9 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 - Twitch chat connection using `tmi.js`
 - Modular command architecture for commands and queue logic
 - Gemini API integration for chat responses with sanitized, structured request logging
-- Configurable AI response language (Brazilian Portuguese by default)
+- Automatic AI response language matching the question, with an optional fixed-language override
 - `!help`, `!about`, `!ping`, `!status`, `!question`, `!ai`, and `!queue` commands
+- Viewer-configurable, channel-wide response language with `!language`
 - Moderator-only AI controls and queue inspection/clearing
 - Bounded pending-question queue with limit validation via `MAX_PENDING_QUESTIONS`
 - Automatic Twitch reconnection and graceful shutdown on termination signals
@@ -23,7 +24,7 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 
 ## Current Implementation Status
 
-The bot supports a complete Twitch chat flow: viewers can ask questions and check whether AI responses are enabled, while moderators can control the AI and inspect or clear the queue. Failed Gemini requests and Twitch replies are logged and handled so subsequent queued questions can continue. Gemini request logs include outcome, duration, and HTTP status without exposing sensitive request content.
+The bot supports a complete Twitch chat flow: viewers can ask questions, check whether AI responses are enabled, and set the channel-wide response language; moderators can control the AI and inspect or clear the queue. Failed Gemini requests and Twitch replies are logged and handled so subsequent queued questions can continue. Gemini request logs include outcome, duration, and HTTP status without exposing sensitive request content.
 
 ## Tech Stack
 
@@ -53,11 +54,13 @@ The bot supports a complete Twitch chat flow: viewers can ask questions and chec
 │   │   ├── ping.ts
 │   │   ├── question.ts
 │   │   ├── status.ts
+│   │   └── language.ts
 │   ├── types/
 │   │   └── commands.ts
 │   ├── services/
 │   │   ├── gemini.ts
-│   │   └── gemini.test.ts
+│   │   ├── gemini.test.ts
+│   │   └── response-language.ts
 │   ├── utils/
 │   │   ├── chat.ts
 │   │   └── chat.test.ts
@@ -114,8 +117,9 @@ TWITCH_OAUTH_TOKEN=oauth:your_twitch_token
 TWITCH_CHANNEL=your_channel_name
 GEMINI_API_KEY=your_google_ai_studio_key
 GEMINI_MODEL=gemini-2.5-flash
-GEMINI_LANGUAGE=Portuguese (Brazil)
+GEMINI_LANGUAGE=auto
 AI_STATE_FILE=.ai-state.json
+AI_LANGUAGE_FILE=.ai-language.json
 COMMAND_COOLDOWN_SECONDS=15
 USER_COOLDOWN_SECONDS=30
 MAX_QUESTION_LENGTH=300
@@ -126,7 +130,10 @@ MAX_PENDING_QUESTIONS=5
 Notes:
 
 - `TWITCH_CHANNEL` can be passed as `#channel` or `channel`.
-- `GEMINI_LANGUAGE` controls the language used for AI responses; it defaults to `Portuguese (Brazil)`.
+- `GEMINI_LANGUAGE` defaults to `auto`, so answers use the language of the question unless the viewer explicitly requests another language. It is the initial response language when there is no saved `!language` preference.
+- `AI_LANGUAGE_FILE` stores the channel-wide response language selected with `!language`; it defaults to `.ai-language.json` in the working directory and is git-ignored.
+- Any viewer can change this channel-wide preference with `!language`, and the latest selection applies to all viewers. The command accepts `auto` or a language name up to 40 characters.
+- If the saved language file is unreadable or invalid, startup reports an error instead of silently resetting the preference. A failed save is reported in chat and leaves the previous language active.
 - `AI_STATE_FILE` stores whether AI responses are enabled; it defaults to `.ai-state.json` in the working directory, which is git-ignored. If it does not exist, the AI defaults to enabled. If you choose a custom path, keep that file out of version control.
 - If the state file is unreadable or contains invalid data, startup reports an error instead of silently resetting the moderator-selected state.
 - Numeric values must be positive finite numbers. `MAX_PENDING_QUESTIONS` must be a positive safe integer.
@@ -142,6 +149,20 @@ Checks that the bot is online and responding.
 ### `!status`
 
 Shows whether AI question responses are currently enabled. This command is available to all viewers and does not expose queue details or moderator controls.
+
+### `!language <language>` / `!language auto`
+
+Sets the response language for the entire channel. Any viewer can use this command, so the latest selection applies to everyone. Use `!language auto` to answer in the language of each question unless the viewer asks for another language. The setting is saved in `AI_LANGUAGE_FILE` and survives restarts.
+
+Examples:
+
+```text
+!language
+!language Portuguese (Brazil)
+!language auto
+```
+
+Calling `!language` without an argument shows the current setting. Command confirmations and usage errors are sent in English, regardless of the selected response language.
 
 ### `!help`
 
@@ -188,7 +209,7 @@ Run the project tests with:
 npm test
 ```
 
-The current automated suite covers AI-state persistence across store instances, default state, invalid state files, and write failures; configuration validation (including the pending-question limit and whitespace-only numeric values); command parsing and dispatch; queue behavior; Gemini request handling; and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help`, `!about`, and the public `!status` command, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Failure-path tests cover unavailable Gemini requests, Twitch reply failures, and continued queue processing. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
+The current automated suite covers AI-state persistence across store instances, default state, invalid state files, and write failures; configuration validation (including the pending-question limit and whitespace-only numeric values); command parsing and dispatch; queue behavior; Gemini request handling; and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help`, `!about`, public `!status`, and viewer-accessible channel-wide `!language`, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Gemini tests verify dynamic response-language selection and fixed-language overrides. Failure-path tests cover unavailable Gemini requests, Twitch reply failures, and continued queue processing. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
 
 Gemini requests emit structured logs with the outcome, duration in milliseconds, and HTTP status when available. These logs intentionally exclude question/answer contents and API credentials.
 

@@ -13,6 +13,7 @@ test("askGemini sends the API key in the header and uses an abort signal", async
     "GEMINI_MODEL",
     "GEMINI_LANGUAGE",
     "MAX_ANSWER_LENGTH",
+    "AI_LANGUAGE_FILE",
   ] as const;
   const previousValues = new Map(requiredVariables.map((name) => [name, process.env[name]]));
   const calls: Record<string, unknown> = {};
@@ -49,6 +50,7 @@ test("askGemini sends the API key in the header and uses an abort signal", async
   process.env.GEMINI_MODEL = "gemini-2.5-flash";
   process.env.GEMINI_LANGUAGE = "English";
   process.env.MAX_ANSWER_LENGTH = "120";
+  process.env.AI_LANGUAGE_FILE = "unused-test-language-state.json";
 
   try {
     const { askGemini } = await import("./gemini.js");
@@ -79,6 +81,82 @@ test("askGemini sends the API key in the header and uses an abort signal", async
       if (typeof value === "undefined") delete process.env[name];
       else process.env[name] = value;
     }
+  }
+});
+
+test("askGemini follows the question language by default when auto is selected", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const previousConsoleInfo = console.info;
+  const requestBodies: Array<Record<string, unknown>> = [];
+  console.info = () => {};
+
+  try {
+    const askGemini = createGeminiRequester({
+      language: "auto",
+      fetch: async (_input, init) => {
+        requestBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: "Brasília é a capital." }] } }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+
+    assert.equal(await askGemini("Qual é a capital do Brasil?"), "Brasília é a capital.");
+    const body = requestBodies[0] as {
+      systemInstruction: { parts: Array<{ text: string }> };
+    };
+    assert.match(
+      body.systemInstruction.parts[0]?.text ?? "",
+      /same language as the user's question/i,
+    );
+    assert.match(
+      body.systemInstruction.parts[0]?.text ?? "",
+      /unless they explicitly request a different response language/i,
+    );
+  } finally {
+    console.info = previousConsoleInfo;
+  }
+});
+
+test("Gemini requester reads the selected channel language for each request", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const previousConsoleInfo = console.info;
+  const requestBodies: Array<Record<string, unknown>> = [];
+  let language = "auto";
+  console.info = () => {};
+
+  try {
+    const askGemini = createGeminiRequester({
+      getLanguage: () => language,
+      fetch: async (_input, init) => {
+        requestBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return new Response(
+          JSON.stringify({ candidates: [{ content: { parts: [{ text: "answer" }] } }] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+
+    await askGemini("question one");
+    language = "Spanish";
+    await askGemini("question two");
+
+    const firstBody = requestBodies[0] as {
+      systemInstruction: { parts: Array<{ text: string }> };
+    };
+    const secondBody = requestBodies[1] as {
+      systemInstruction: { parts: Array<{ text: string }> };
+    };
+    assert.match(
+      firstBody.systemInstruction.parts[0]?.text ?? "",
+      /same language as the user's question/i,
+    );
+    assert.match(secondBody.systemInstruction.parts[0]?.text ?? "", /Answer in Spanish/);
+  } finally {
+    console.info = previousConsoleInfo;
   }
 });
 

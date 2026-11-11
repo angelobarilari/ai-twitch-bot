@@ -34,6 +34,12 @@ client.on("message", createMessageHandler(client));
 
 let shuttingDown = false;
 
+/**
+ * Disconnects the Twitch client once in response to a termination signal.
+ *
+ * @param signal Signal that initiated shutdown.
+ * @returns A promise that resolves after the disconnect attempt completes.
+ */
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;

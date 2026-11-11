@@ -2,6 +2,12 @@ import type { CommandHandler } from "../types/commands.js";
 import { isModerator } from "./permissions.js";
 import { questionCommand } from "./question.js";
 
+/**
+ * Handles the moderator-only !queue command for inspecting or clearing waiting questions.
+ *
+ * @param context Command arguments, author metadata, and chat reply function.
+ * @returns A promise that resolves after the queue operation is reported.
+ */
 export const queueCommand: CommandHandler = async ({ args, reply, tags }): Promise<void> => {
   if (!isModerator(tags)) {
     await reply("Apenas moderadores e o broadcaster podem consultar ou limpar a fila.");

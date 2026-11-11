@@ -6,6 +6,13 @@ type PersistedAiState = {
   enabled: boolean;
 };
 
+/**
+ * Reads the persisted AI state, defaulting to enabled when no file exists.
+ *
+ * @param filePath Path to the AI-state file.
+ * @returns Whether AI responses are enabled.
+ * @throws If the file cannot be read, parsed, or validated.
+ */
 function readEnabled(filePath: string): boolean {
   let contents: string;
   try {
@@ -68,5 +75,7 @@ export function createAiStateStore(
 
 const aiState = createAiStateStore();
 
+/** Returns whether AI responses are currently enabled. */
 export const isAiEnabled = aiState.isEnabled;
+/** Persists whether AI responses are enabled. */
 export const setAiEnabled = aiState.setEnabled;

@@ -38,6 +38,13 @@ export function createQuestionCommand(
   let activeQuestion = false;
   const pendingQuestions: PendingQuestion[] = [];
 
+  /**
+   * Obtains and validates an answer, then sends it through Twitch chat.
+   *
+   * @param question Question text to send to Gemini.
+   * @param reply Reply function for the originating chat channel.
+   * @returns A promise that resolves after the answer or an error message is sent.
+   */
   async function answerQuestion(question: string, reply: PendingQuestion["reply"]): Promise<void> {
     try {
       let answer = await askQuestion(question);
@@ -78,6 +85,9 @@ export function createQuestionCommand(
     }
   }
 
+  /**
+   * Starts processing the next queued question when no request is active.
+   */
   function processNextQuestion(): void {
     if (activeQuestion) return;
 
@@ -94,6 +104,12 @@ export function createQuestionCommand(
       });
   }
 
+  /**
+   * Validates and queues a viewer question, applying safety checks and cooldowns.
+   *
+   * @param context Command arguments, author metadata, and chat reply function.
+   * @returns A promise that resolves after the question is answered or rejected.
+   */
   const command: CommandHandler = async (context): Promise<void> => {
     const { args, reply, tags, text } = context;
     const username = tags.username ?? "anonymous";
