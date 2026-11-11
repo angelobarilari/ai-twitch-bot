@@ -38,7 +38,7 @@ test("loadConfig accepts valid environment values", async () => {
   }
 });
 
-test("loadConfig defaults the response language to Brazilian Portuguese", async () => {
+test("loadConfig defaults response language to auto-detect", async () => {
   const snapshot = { ...process.env };
   process.env.TWITCH_BOT_USERNAME = "bot";
   process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
@@ -48,7 +48,7 @@ test("loadConfig defaults the response language to Brazilian Portuguese", async 
 
   try {
     const { loadConfig } = await import("./config.js");
-    assert.equal(loadConfig().language, "Portuguese (Brazil)");
+    assert.equal(loadConfig().language, "auto");
   } finally {
     restoreEnv(snapshot);
   }

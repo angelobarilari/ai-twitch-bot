@@ -7,13 +7,16 @@ import tmi from "tmi.js";
 import type { CommandContext } from "../types/commands.js";
 
 let parseCommand: typeof import("./index.js").parseCommand;
-let createQuestionCommand: typeof import("./question.js").createQuestionCommand;
+let createQuestionCommand: typeof import("./question/index.js").createQuestionCommand;
 let config: typeof import("../config.js").config;
-let setAiEnabled: typeof import("./ai-state.js").setAiEnabled;
-let queueCommand: typeof import("./queue.js").queueCommand;
+let setAiEnabled: typeof import("./shared/ai-state.js").setAiEnabled;
+let queueCommand: typeof import("./queue/index.js").queueCommand;
 let createMessageHandler: typeof import("./index.js").createMessageHandler;
+let getResponseLanguage: typeof import("../services/response-language.js").getResponseLanguage;
+let createResponseLanguageStore: typeof import("../services/response-language.js").createResponseLanguageStore;
 let stateDirectory: string;
 let previousStateFile: string | undefined;
+let previousLanguageFile: string | undefined;
 
 before(async () => {
   const requiredVariables = [
@@ -25,19 +28,23 @@ before(async () => {
   const previousValues = new Map(requiredVariables.map((name) => [name, process.env[name]]));
   stateDirectory = mkdtempSync(join(tmpdir(), "ai-twitch-bot-command-test-"));
   previousStateFile = process.env.AI_STATE_FILE;
+  previousLanguageFile = process.env.AI_LANGUAGE_FILE;
 
   process.env.TWITCH_BOT_USERNAME = "test-bot";
   process.env.TWITCH_OAUTH_TOKEN = "oauth:test-token";
   process.env.TWITCH_CHANNEL = "test_channel";
   process.env.GEMINI_API_KEY = "test-api-key";
   process.env.AI_STATE_FILE = join(stateDirectory, "state.json");
+  process.env.AI_LANGUAGE_FILE = join(stateDirectory, "language.json");
 
   try {
     ({ parseCommand } = await import("./index.js"));
-    ({ createQuestionCommand } = await import("./question.js"));
+    ({ createQuestionCommand } = await import("./question/index.js"));
     ({ config } = await import("../config.js"));
-    ({ setAiEnabled } = await import("./ai-state.js"));
-    ({ queueCommand } = await import("./queue.js"));
+    ({ setAiEnabled } = await import("./shared/ai-state.js"));
+    ({ getResponseLanguage } = await import("../services/response-language.js"));
+    ({ createResponseLanguageStore } = await import("../services/response-language.js"));
+    ({ queueCommand } = await import("./queue/index.js"));
     ({ createMessageHandler } = await import("./index.js"));
     setAiEnabled(true);
   } finally {
@@ -51,6 +58,8 @@ before(async () => {
 after(() => {
   if (typeof previousStateFile === "undefined") delete process.env.AI_STATE_FILE;
   else process.env.AI_STATE_FILE = previousStateFile;
+  if (typeof previousLanguageFile === "undefined") delete process.env.AI_LANGUAGE_FILE;
+  else process.env.AI_LANGUAGE_FILE = previousLanguageFile;
   rmSync(stateDirectory, { recursive: true, force: true });
 });
 
@@ -118,7 +127,56 @@ test("viewers can check whether AI responses are enabled with !status", async ()
   await handleMessage("test_channel", { username: "viewer" }, "!status", false);
   setAiEnabled(true);
 
-  assert.deepEqual(replies, ["A IA está ligada.", "A IA está desligada."]);
+  assert.deepEqual(replies, ["The AI is enabled.", "The AI is disabled."]);
+});
+
+test("viewers can set and reset the channel-wide response language", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  const handleMessage = createMessageHandler(client);
+
+  await handleMessage("test_channel", { username: "viewer-one" }, "!language English", false);
+  assert.equal(getResponseLanguage(), "English");
+  await handleMessage(
+    "test_channel",
+    { username: "viewer-two" },
+    "!language Portuguese (Brazil)",
+    false,
+  );
+  assert.equal(getResponseLanguage(), "Portuguese (Brazil)");
+  await handleMessage("test_channel", { username: "viewer-three" }, "!language auto", false);
+  assert.equal(getResponseLanguage(), "auto");
+  assert.equal(createResponseLanguageStore(join(stateDirectory, "language.json")).get(), "auto");
+
+  assert.deepEqual(replies, [
+    "Response language set to English.",
+    "Response language set to Portuguese (Brazil).",
+    "Responses will follow the language of each question.",
+  ]);
+});
+
+test("language command reports current language and rejects invalid values", async () => {
+  const replies: string[] = [];
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  const handleMessage = createMessageHandler(client);
+
+  await handleMessage("test_channel", { username: "viewer" }, "!language Spanish", false);
+  await handleMessage("test_channel", { username: "viewer" }, "!language", false);
+  await handleMessage("test_channel", { username: "viewer" }, `!language ${"x".repeat(41)}`, false);
+  assert.equal(getResponseLanguage(), "Spanish");
+  assert.deepEqual(replies, [
+    "Response language set to Spanish.",
+    "Current response language: Spanish. Use !language <language> or !language auto.",
+    "Usage: !language <language> or !language auto (maximum 40 characters).",
+  ]);
 });
 
 test("message handler routes a question through Gemini and replies in chat", async () => {
@@ -285,7 +343,7 @@ test("message handler routes !about to the registered command", async () => {
   await createMessageHandler(client)("test_channel", { username: "viewer" }, "!about", false);
 
   assert.deepEqual(replies, [
-    "Sou um bot de chat com IA para Twitch. Uso o Gemini para responder perguntas de forma breve; use !help para ver os comandos.",
+    "I am an AI chat bot for Twitch. I use Gemini to answer questions briefly; use !help to see the available commands.",
   ]);
 });
 
@@ -337,7 +395,7 @@ test("questionCommand refuses questions while AI is disabled", async () => {
   }
 
   assert.equal(calls, 0);
-  assert.deepEqual(replies, ["A IA está desligada no momento."]);
+  assert.deepEqual(replies, ["The AI is currently disabled."]);
 });
 
 test("questionCommand serializes accepted Gemini requests", async () => {
@@ -370,14 +428,14 @@ test("questionCommand serializes accepted Gemini requests", async () => {
   currentTime += config.commandCooldownMs + 1;
   const secondCommand = command(createContext("viewer-two", "second question", replies));
   assert.deepEqual(calls, ["first question"]);
-  assert.deepEqual(replies, ["Sua pergunta entrou na fila. Posição: 1."]);
+  assert.deepEqual(replies, ["Your question was added to the queue. Position: 1."]);
 
   resolveFirstAnswer("first answer");
   await Promise.all([firstCommand, secondCommand]);
 
   assert.deepEqual(calls, ["first question", "second question"]);
   assert.deepEqual(replies, [
-    "Sua pergunta entrou na fila. Posição: 1.",
+    "Your question was added to the queue. Position: 1.",
     "first answer",
     "second answer",
   ]);
@@ -494,7 +552,7 @@ test("questionCommand reports queue status and moderator clearing cancels waitin
   assert.equal(await command.clearPendingQuestions(), 1);
   await queuedCommand;
   assert.deepEqual(command.getQueueStatus(), { active: true, waiting: 0 });
-  assert.ok(replies.includes("Sua pergunta foi removida da fila por um moderador."));
+  assert.ok(replies.includes("Your question was removed from the queue by a moderator."));
 
   resolveFirstAnswer("first answer");
   await firstCommand;
@@ -520,8 +578,8 @@ test("queueCommand restricts queue controls to moderators", async () => {
     tags: { badges: { broadcaster: "1" } },
   });
   assert.deepEqual(replies, [
-    "Apenas moderadores e o broadcaster podem consultar ou limpar a fila.",
-    "Fila de perguntas: nenhuma em andamento, 0 aguardando.",
-    "Não há perguntas aguardando para remover.",
+    "Only moderators and the broadcaster can view or clear the queue.",
+    "Question queue: none in progress, 0 waiting.",
+    "There are no waiting questions to remove.",
   ]);
 });

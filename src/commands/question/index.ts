@@ -1,8 +1,8 @@
-import { config } from "../config.js";
-import { askGemini } from "../services/gemini.js";
-import { blockedContent, remainingSeconds, splitForTwitch } from "../utils/chat.js";
-import type { CommandHandler } from "../types/commands.js";
-import { isAiEnabled } from "./ai-state.js";
+import { config } from "../../config.js";
+import { askGemini } from "../../services/gemini.js";
+import { blockedContent, remainingSeconds, splitForTwitch } from "../../utils/chat.js";
+import type { CommandHandler } from "../../types/commands.js";
+import { isAiEnabled } from "../shared/ai-state.js";
 
 export type QuestionQueueStatus = {
   active: boolean;
@@ -38,6 +38,13 @@ export function createQuestionCommand(
   let activeQuestion = false;
   const pendingQuestions: PendingQuestion[] = [];
 
+  /**
+   * Obtains and validates an answer, then sends it through Twitch chat.
+   *
+   * @param question Question text to send to Gemini.
+   * @param reply Reply function for the originating chat channel.
+   * @returns A promise that resolves after the answer or an error message is sent.
+   */
   async function answerQuestion(question: string, reply: PendingQuestion["reply"]): Promise<void> {
     try {
       let answer = await askQuestion(question);
@@ -78,6 +85,9 @@ export function createQuestionCommand(
     }
   }
 
+  /**
+   * Starts processing the next queued question when no request is active.
+   */
   function processNextQuestion(): void {
     if (activeQuestion) return;
 
@@ -94,6 +104,12 @@ export function createQuestionCommand(
       });
   }
 
+  /**
+   * Validates and queues a viewer question, applying safety checks and cooldowns.
+   *
+   * @param context Command arguments, author metadata, and chat reply function.
+   * @returns A promise that resolves after the question is answered or rejected.
+   */
   const command: CommandHandler = async (context): Promise<void> => {
     const { args, reply, tags, text } = context;
     const username = tags.username ?? "anonymous";
@@ -101,7 +117,7 @@ export function createQuestionCommand(
     const currentTime = now();
 
     if (!isAiEnabled()) {
-      await reply("A IA está desligada no momento.");
+      await reply("The AI is currently disabled.");
       return;
     }
 
@@ -151,7 +167,7 @@ export function createQuestionCommand(
     });
 
     if (queuedPosition !== null) {
-      await reply(`Sua pergunta entrou na fila. Posição: ${queuedPosition}.`);
+      await reply(`Your question was added to the queue. Position: ${queuedPosition}.`);
     }
 
     await responseTask;
@@ -169,7 +185,7 @@ export function createQuestionCommand(
       await Promise.all(
         removedQuestions.map(async ({ resolve, reply }) => {
           resolve();
-          await reply("Sua pergunta foi removida da fila por um moderador.");
+          await reply("Your question was removed from the queue by a moderator.");
         }),
       );
 

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import type { CommandContext } from "../types/commands.js";
+import type { CommandContext } from "../../types/commands.js";
 
-let helpCommand: typeof import("./help.js").helpCommand;
-let config: typeof import("../config.js").config;
+let helpCommand: typeof import("./index.js").helpCommand;
+let config: typeof import("../../config.js").config;
 
 before(async () => {
   const requiredVariables = [
@@ -28,8 +28,8 @@ before(async () => {
   process.env.MAX_PENDING_QUESTIONS = "4";
 
   try {
-    ({ helpCommand } = await import("./help.js"));
-    ({ config } = await import("../config.js"));
+    ({ helpCommand } = await import("./index.js"));
+    ({ config } = await import("../../config.js"));
   } finally {
     for (const [name, value] of previousValues) {
       if (typeof value === "undefined") delete process.env[name];
@@ -53,7 +53,7 @@ test("helpCommand lists commands, permissions, and configured limits", async () 
   await helpCommand(context);
 
   assert.deepEqual(replies, [
-    `Comandos: !help - ajuda; !about - sobre; !ping - conexão; !status - estado da IA; !question <pergunta> - pergunta (máx. ${config.maxQuestionLength} caracteres); !ai [on|off] - estado/controle (moderadores e broadcaster); !queue [clear] - ver/limpar fila (moderadores e broadcaster). Perguntas: cooldown global de ${config.commandCooldownMs / 1000}s e por usuário de ${config.userCooldownMs / 1000}s; fila máx. ${config.maxPendingQuestions} (inclui em andamento).`,
+    `!help command list; !about bot info; !ping connection; !status AI status; !language <language|auto> channel language; !question <question> max ${config.maxQuestionLength} characters; !ai [on|off] and !queue [clear] (moderators). Cooldown: ${config.commandCooldownMs / 1000}s global/${config.userCooldownMs / 1000}s per user; queue max ${config.maxPendingQuestions}.`,
   ]);
   assert.ok(replies[0] && replies[0].length <= 500);
 });
