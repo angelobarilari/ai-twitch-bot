@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CommandContext } from "../types/commands.js";
-import { aboutCommand } from "./about.js";
+import type { CommandContext } from "../../types/commands.js";
+import { aboutCommand } from "./index.js";
 
 test("aboutCommand explains the bot and points viewers to help", async () => {
   const replies: string[] = [];

@@ -1,4 +1,4 @@
-import type { CommandHandler } from "../types/commands.js";
+import type { CommandHandler } from "../../types/commands.js";
 
 /**
  * Handles the !about command by describing the bot and pointing to !help.

@@ -40,21 +40,31 @@ The bot supports a complete Twitch chat flow: viewers can ask questions, check w
 .
 ├── src/
 │   ├── commands/
+│   │   ├── about/
+│   │   │   ├── index.ts
+│   │   │   └── about.test.ts
+│   │   ├── ai/
+│   │   │   ├── index.ts
+│   │   │   └── ai.test.ts
+│   │   ├── help/
+│   │   │   ├── index.ts
+│   │   │   └── help.test.ts
+│   │   ├── language/
+│   │   │   └── index.ts
+│   │   ├── ping/
+│   │   │   └── index.ts
+│   │   ├── queue/
+│   │   │   └── index.ts
+│   │   ├── question/
+│   │   │   └── index.ts
+│   │   ├── status/
+│   │   │   └── index.ts
+│   │   ├── shared/
+│   │   │   ├── ai-state.ts
+│   │   │   └── permissions.ts
 │   │   ├── index.ts
-│   │   ├── index.test.ts
-│   │   ├── help.ts
-│   │   ├── help.test.ts
-│   │   ├── about.ts
-│   │   ├── about.test.ts
-│   │   ├── ai.ts
-│   │   ├── ai.test.ts
-│   │   ├── ai-state.ts
-│   │   ├── permissions.ts
-│   │   ├── queue.ts
-│   │   ├── ping.ts
-│   │   ├── question.ts
-│   │   ├── status.ts
-│   │   └── language.ts
+│   │   ├── router.ts
+│   │   └── router.test.ts
 │   ├── types/
 │   │   └── commands.ts
 │   ├── services/
@@ -76,6 +86,8 @@ The bot supports a complete Twitch chat flow: viewers can ask questions, check w
 ├── .github/
 └── .vscode/
 ```
+
+Each command folder exposes its handler through `index.ts`. Command-specific tests sit beside their implementation where applicable, while parsing and dispatch integration tests live in `router.test.ts`. `commands/index.ts` re-exports public handlers and command types; `commands/router.ts` handles parsing and dispatch, and shared command state and permission helpers live in `commands/shared/`.
 
 ## Requirements
 

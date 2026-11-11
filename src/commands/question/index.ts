@@ -1,8 +1,8 @@
-import { config } from "../config.js";
-import { askGemini } from "../services/gemini.js";
-import { blockedContent, remainingSeconds, splitForTwitch } from "../utils/chat.js";
-import type { CommandHandler } from "../types/commands.js";
-import { isAiEnabled } from "./ai-state.js";
+import { config } from "../../config.js";
+import { askGemini } from "../../services/gemini.js";
+import { blockedContent, remainingSeconds, splitForTwitch } from "../../utils/chat.js";
+import type { CommandHandler } from "../../types/commands.js";
+import { isAiEnabled } from "../shared/ai-state.js";
 
 export type QuestionQueueStatus = {
   active: boolean;

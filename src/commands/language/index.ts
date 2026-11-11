@@ -1,9 +1,9 @@
-import type { CommandHandler } from "../types/commands.js";
+import type { CommandHandler } from "../../types/commands.js";
 import {
   getResponseLanguage,
   isValidResponseLanguage,
   setResponseLanguage,
-} from "../services/response-language.js";
+} from "../../services/response-language.js";
 
 /**
  * Handles the viewer-accessible !language command for the channel-wide response language.

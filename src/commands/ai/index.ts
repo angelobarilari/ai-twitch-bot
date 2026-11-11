@@ -1,6 +1,6 @@
-import type { CommandHandler } from "../types/commands.js";
-import { isAiEnabled, setAiEnabled } from "./ai-state.js";
-import { isModerator } from "./permissions.js";
+import type { CommandHandler } from "../../types/commands.js";
+import { isAiEnabled, setAiEnabled } from "../shared/ai-state.js";
+import { isModerator } from "../shared/permissions.js";
 
 /**
  * Handles the moderator-only !ai command for reading or changing AI state.

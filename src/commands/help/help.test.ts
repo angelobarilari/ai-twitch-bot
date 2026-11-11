@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import type { CommandContext } from "../types/commands.js";
+import type { CommandContext } from "../../types/commands.js";
 
-let helpCommand: typeof import("./help.js").helpCommand;
-let config: typeof import("../config.js").config;
+let helpCommand: typeof import("./index.js").helpCommand;
+let config: typeof import("../../config.js").config;
 
 before(async () => {
   const requiredVariables = [
@@ -28,8 +28,8 @@ before(async () => {
   process.env.MAX_PENDING_QUESTIONS = "4";
 
   try {
-    ({ helpCommand } = await import("./help.js"));
-    ({ config } = await import("../config.js"));
+    ({ helpCommand } = await import("./index.js"));
+    ({ config } = await import("../../config.js"));
   } finally {
     for (const [name, value] of previousValues) {
       if (typeof value === "undefined") delete process.env[name];

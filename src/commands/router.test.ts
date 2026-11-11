@@ -7,10 +7,10 @@ import tmi from "tmi.js";
 import type { CommandContext } from "../types/commands.js";
 
 let parseCommand: typeof import("./index.js").parseCommand;
-let createQuestionCommand: typeof import("./question.js").createQuestionCommand;
+let createQuestionCommand: typeof import("./question/index.js").createQuestionCommand;
 let config: typeof import("../config.js").config;
-let setAiEnabled: typeof import("./ai-state.js").setAiEnabled;
-let queueCommand: typeof import("./queue.js").queueCommand;
+let setAiEnabled: typeof import("./shared/ai-state.js").setAiEnabled;
+let queueCommand: typeof import("./queue/index.js").queueCommand;
 let createMessageHandler: typeof import("./index.js").createMessageHandler;
 let getResponseLanguage: typeof import("../services/response-language.js").getResponseLanguage;
 let createResponseLanguageStore: typeof import("../services/response-language.js").createResponseLanguageStore;
@@ -39,12 +39,12 @@ before(async () => {
 
   try {
     ({ parseCommand } = await import("./index.js"));
-    ({ createQuestionCommand } = await import("./question.js"));
+    ({ createQuestionCommand } = await import("./question/index.js"));
     ({ config } = await import("../config.js"));
-    ({ setAiEnabled } = await import("./ai-state.js"));
+    ({ setAiEnabled } = await import("./shared/ai-state.js"));
     ({ getResponseLanguage } = await import("../services/response-language.js"));
     ({ createResponseLanguageStore } = await import("../services/response-language.js"));
-    ({ queueCommand } = await import("./queue.js"));
+    ({ queueCommand } = await import("./queue/index.js"));
     ({ createMessageHandler } = await import("./index.js"));
     setAiEnabled(true);
   } finally {

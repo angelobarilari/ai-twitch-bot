@@ -1,5 +1,5 @@
-import { config } from "../config.js";
-import type { CommandHandler } from "../types/commands.js";
+import { config } from "../../config.js";
+import type { CommandHandler } from "../../types/commands.js";
 
 /**
  * Handles the !help command by listing available commands and configured limits.

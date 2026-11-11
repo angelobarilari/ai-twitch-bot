@@ -1,6 +1,6 @@
-import type { CommandHandler } from "../types/commands.js";
-import { isModerator } from "./permissions.js";
-import { questionCommand } from "./question.js";
+import type { CommandHandler } from "../../types/commands.js";
+import { isModerator } from "../shared/permissions.js";
+import { questionCommand } from "../question/index.js";
 
 /**
  * Handles the moderator-only !queue command for inspecting or clearing waiting questions.

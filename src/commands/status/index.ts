@@ -1,5 +1,5 @@
-import type { CommandHandler } from "../types/commands.js";
-import { isAiEnabled } from "./ai-state.js";
+import type { CommandHandler } from "../../types/commands.js";
+import { isAiEnabled } from "../shared/ai-state.js";
 
 /**
  * Handles the !status command by reporting whether AI responses are enabled.

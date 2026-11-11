@@ -3,12 +3,12 @@ import { after, before, test } from "node:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandContext } from "../types/commands.js";
+import type { CommandContext } from "../../types/commands.js";
 
-let aiCommand: typeof import("./ai.js").aiCommand;
-let createAiStateStore: typeof import("./ai-state.js").createAiStateStore;
-let isAiEnabled: typeof import("./ai-state.js").isAiEnabled;
-let setAiEnabled: typeof import("./ai-state.js").setAiEnabled;
+let aiCommand: typeof import("./index.js").aiCommand;
+let createAiStateStore: typeof import("../shared/ai-state.js").createAiStateStore;
+let isAiEnabled: typeof import("../shared/ai-state.js").isAiEnabled;
+let setAiEnabled: typeof import("../shared/ai-state.js").setAiEnabled;
 let stateDirectory: string;
 let previousStateFile: string | undefined;
 
@@ -16,8 +16,8 @@ before(async () => {
   stateDirectory = mkdtempSync(join(tmpdir(), "ai-twitch-bot-test-"));
   previousStateFile = process.env.AI_STATE_FILE;
   process.env.AI_STATE_FILE = join(stateDirectory, "global-state.json");
-  ({ aiCommand } = await import("./ai.js"));
-  ({ createAiStateStore, isAiEnabled, setAiEnabled } = await import("./ai-state.js"));
+  ({ aiCommand } = await import("./index.js"));
+  ({ createAiStateStore, isAiEnabled, setAiEnabled } = await import("../shared/ai-state.js"));
 });
 
 after(() => {
