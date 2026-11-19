@@ -16,9 +16,9 @@ const client = new tmi.Client({
  * @param port Connected port supplied by tmi.js.
  * @returns Nothing.
  */
-function handleConnected(_address: string, port: number): void {
+const handleConnected = (_address: string, port: number): void => {
   console.log(`Bot connected to channel #${config.channel} on port ${port}.`);
-}
+};
 
 client.on("connected", handleConnected);
 client.on("connecting", (address, port) => {
@@ -40,7 +40,7 @@ let shuttingDown = false;
  * @param signal Signal that initiated shutdown.
  * @returns A promise that resolves after the disconnect attempt completes.
  */
-async function shutdown(signal: NodeJS.Signals): Promise<void> {
+const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`Received ${signal}; disconnecting from Twitch.`);
@@ -51,7 +51,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     console.error("Failed to disconnect cleanly from Twitch:", error);
     process.exitCode = 1;
   }
-}
+};
 
 process.once("SIGINT", () => void shutdown("SIGINT"));
 process.once("SIGTERM", () => void shutdown("SIGTERM"));

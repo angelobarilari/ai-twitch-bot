@@ -2,10 +2,6 @@ import "dotenv/config";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-type PersistedAiState = {
-  enabled: boolean;
-};
-
 /**
  * Reads the persisted AI state, defaulting to enabled when no file exists.
  *
@@ -13,7 +9,7 @@ type PersistedAiState = {
  * @returns Whether AI responses are enabled.
  * @throws If the file cannot be read, parsed, or validated.
  */
-function readEnabled(filePath: string): boolean {
+const readEnabled = (filePath: string): boolean => {
   let contents: string;
   try {
     contents = readFileSync(filePath, "utf8");
@@ -43,7 +39,7 @@ function readEnabled(filePath: string): boolean {
   }
 
   return state.enabled;
-}
+};
 
 /**
  * Creates a state store that persists the AI enabled flag between process runs.
@@ -51,12 +47,12 @@ function readEnabled(filePath: string): boolean {
  * @param filePath File used to read and persist the enabled state.
  * @returns State accessors bound to the persistence file.
  */
-export function createAiStateStore(
+export const createAiStateStore = (
   filePath = process.env.AI_STATE_FILE ?? join(process.cwd(), ".ai-state.json"),
 ): {
   isEnabled: () => boolean;
   setEnabled: (value: boolean) => void;
-} {
+} => {
   let enabled = readEnabled(filePath);
 
   return {
@@ -71,7 +67,7 @@ export function createAiStateStore(
       enabled = value;
     },
   };
-}
+};
 
 const aiState = createAiStateStore();
 

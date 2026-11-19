@@ -1,13 +1,13 @@
 ﻿import assert from "node:assert/strict";
 import test from "node:test";
 
-function restoreEnv(snapshot: Record<string, string | undefined>) {
+const restoreEnv = (snapshot: Record<string, string | undefined>): void => {
   for (const key of Object.keys(process.env)) {
     const value = snapshot[key];
     if (typeof value === "undefined") delete process.env[key];
     else process.env[key] = value;
   }
-}
+};
 
 test("loadConfig accepts valid environment values", async () => {
   const snapshot = { ...process.env };

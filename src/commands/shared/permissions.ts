@@ -6,6 +6,6 @@ import type { ChatUserstate } from "tmi.js";
  * @param tags Twitch metadata for the user.
  * @returns Whether the user has moderator or broadcaster privileges.
  */
-export function isModerator(tags: ChatUserstate): boolean {
+export const isModerator = (tags: ChatUserstate): boolean => {
   return tags.mod === true || tags.badges?.broadcaster === "1";
-}
+};

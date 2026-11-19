@@ -28,10 +28,10 @@ export type ManagedQuestionCommand = CommandHandler & {
  * @param now Clock used to evaluate cooldowns.
  * @returns A command handler that serializes accepted Gemini requests.
  */
-export function createQuestionCommand(
+export const createQuestionCommand = (
   askQuestion: typeof askGemini = askGemini,
   now: () => number = Date.now,
-): ManagedQuestionCommand {
+): ManagedQuestionCommand => {
   const lastCommandAt = new Map<string, number>();
   let lastGlobalCommandAt = 0;
   let pendingQuestionCount = 0;
@@ -45,7 +45,10 @@ export function createQuestionCommand(
    * @param reply Reply function for the originating chat channel.
    * @returns A promise that resolves after the answer or an error message is sent.
    */
-  async function answerQuestion(question: string, reply: PendingQuestion["reply"]): Promise<void> {
+  const answerQuestion = async (
+    question: string,
+    reply: PendingQuestion["reply"],
+  ): Promise<void> => {
     try {
       let answer = await askQuestion(question);
       if (!answer || blockedContent.test(answer)) {
@@ -83,12 +86,12 @@ export function createQuestionCommand(
       console.error("Error while querying the AI:", error);
       await reply("I could not query the AI right now. Please try again later.");
     }
-  }
+  };
 
   /**
    * Starts processing the next queued question when no request is active.
    */
-  function processNextQuestion(): void {
+  const processNextQuestion = (): void => {
     if (activeQuestion) return;
 
     const pending = pendingQuestions.shift();
@@ -102,7 +105,7 @@ export function createQuestionCommand(
         pendingQuestionCount -= 1;
         processNextQuestion();
       });
-  }
+  };
 
   /**
    * Validates and queues a viewer question, applying safety checks and cooldowns.
@@ -192,6 +195,6 @@ export function createQuestionCommand(
       return removedQuestions.length;
     },
   });
-}
+};
 
 export const questionCommand = createQuestionCommand();

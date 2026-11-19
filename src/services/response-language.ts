@@ -10,7 +10,7 @@ import { config } from "../config.js";
  * @returns The normalized saved language or the fallback.
  * @throws If the file cannot be read, parsed, or validated.
  */
-function readLanguage(filePath: string, fallback: string): string {
+const readLanguage = (filePath: string, fallback: string): string => {
   let contents: string;
   try {
     contents = readFileSync(filePath, "utf8");
@@ -44,7 +44,7 @@ function readLanguage(filePath: string, fallback: string): string {
   }
 
   return normalizeResponseLanguage(state.language);
-}
+};
 
 /**
  * Checks whether a response language is supported by the command and store.
@@ -52,7 +52,7 @@ function readLanguage(filePath: string, fallback: string): string {
  * @param language Language name or the special value "auto".
  * @returns Whether the trimmed value is valid and within the supported length.
  */
-export function isValidResponseLanguage(language: string): boolean {
+export const isValidResponseLanguage = (language: string): boolean => {
   const normalized = language.trim();
   return (
     normalized.length > 0 &&
@@ -60,7 +60,7 @@ export function isValidResponseLanguage(language: string): boolean {
     (normalized.toLowerCase() === "auto" ||
       /^[\p{L}\p{M}][\p{L}\p{M}\p{Zs}().-]*$/u.test(normalized))
   );
-}
+};
 
 /**
  * Trims a response language and normalizes the special auto-detect value.
@@ -68,10 +68,10 @@ export function isValidResponseLanguage(language: string): boolean {
  * @param language Language name or the special value "auto".
  * @returns The trimmed language, with "auto" normalized to lowercase.
  */
-export function normalizeResponseLanguage(language: string): string {
+export const normalizeResponseLanguage = (language: string): string => {
   const normalized = language.trim();
   return normalized.toLowerCase() === "auto" ? "auto" : normalized;
-}
+};
 
 /**
  * Creates a response-language store with local persistence.
@@ -80,13 +80,13 @@ export function normalizeResponseLanguage(language: string): string {
  * @param fallback Language used when no saved preference exists.
  * @returns Get and set operations for the selected response language.
  */
-export function createResponseLanguageStore(
+export const createResponseLanguageStore = (
   filePath = process.env.AI_LANGUAGE_FILE?.trim() || join(process.cwd(), ".ai-language.json"),
   fallback = config.language,
 ): {
   get: () => string;
   set: (language: string) => void;
-} {
+} => {
   if (!isValidResponseLanguage(fallback)) {
     throw new Error("GEMINI_LANGUAGE must be 'auto' or a language name of at most 40 characters.");
   }
@@ -111,7 +111,7 @@ export function createResponseLanguageStore(
       language = normalized;
     },
   };
-}
+};
 
 const responseLanguage = createResponseLanguageStore();
 

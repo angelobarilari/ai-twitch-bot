@@ -8,9 +8,9 @@ export const blockedContent =
  * @param now Current timestamp in milliseconds.
  * @returns At least one second, rounded up to avoid premature retry messages.
  */
-export function remainingSeconds(until: number, now: number): number {
+export const remainingSeconds = (until: number, now: number): number => {
   return Math.max(1, Math.ceil((until - now) / 1000));
-}
+};
 
 /**
  * Splits a chat response into chunks that fit within the Twitch message limit.
@@ -19,7 +19,7 @@ export function remainingSeconds(until: number, now: number): number {
  * @param maxLength Maximum length allowed per chunk.
  * @returns An array of trimmed chunks, preferring to split at word boundaries.
  */
-export function splitForTwitch(message: string, maxLength: number): string[] {
+export const splitForTwitch = (message: string, maxLength: number): string[] => {
   if (!Number.isSafeInteger(maxLength) || maxLength <= 0) {
     throw new RangeError("maxLength must be a positive safe integer.");
   }
@@ -37,4 +37,4 @@ export function splitForTwitch(message: string, maxLength: number): string[] {
 
   if (remaining) chunks.push(remaining);
   return chunks;
-}
+};

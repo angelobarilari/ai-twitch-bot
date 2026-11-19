@@ -18,14 +18,14 @@ type GeminiRequestOutcome =
  * @param options Optional fetch implementation and timeout duration.
  * @returns A function that sends a question to Gemini and returns generated text.
  */
-export function createGeminiRequester(
+export const createGeminiRequester = (
   options: {
     fetch?: typeof fetch;
     timeoutMs?: number;
     language?: string;
     getLanguage?: () => string;
   } = {},
-): (question: string) => Promise<string | null> {
+): ((question: string) => Promise<string | null>) => {
   const timeoutMs = options.timeoutMs ?? GEMINI_TIMEOUT_MS;
 
   /**
@@ -191,7 +191,7 @@ export function createGeminiRequester(
       else console.error(logEntry);
     }
   };
-}
+};
 
 /** Default Gemini request function used by the question command. */
 export const askGemini = createGeminiRequester();
