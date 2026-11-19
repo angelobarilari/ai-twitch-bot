@@ -393,6 +393,7 @@ Estrutura de branches:
 - `test/<descricao>`: melhorias focadas em testes.
 
 Usar letras minusculas, kebab-case e uma descricao curta.
+Usar descricoes em ingles, seguindo o idioma adotado nos nomes existentes do repositorio.
 
 Exemplos:
 
@@ -422,6 +423,7 @@ Antes de criar a branch, garantir que o estado local não possui alterações n�
 ## 20. Commits
 
 Commits devem seguir o padrão Conventional Commits e são obrigatórios.
+Mensagens de commit devem ser escritas em ingles.
 
 Formato:
 
@@ -478,6 +480,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ## 21. Pull requests
 
 O padrão de Pull Request deve ser seguido obrigatoriamente.
+Títulos e descrições de PR devem ser escritos em ingles, seguindo o padrão das PRs existentes e a convenção English-only do workflow do projeto.
 
 Regra da branch:
 
@@ -502,23 +505,16 @@ fix: prevent queue blocking after timeout
 Descrição do PR deve conter:
 
 ```md
-## Resumo
+## Summary
 
-- descreva o que mudou;
-- explique o motivo da mudança.
+- Describe what changed.
+- Explain why the change was made.
 
-## Como testar
+## Validation
 
 - `npm run format:check`
 - `npm test`
 - `npm run build`
-
-## Checklist
-
-- [ ] Testes adicionados ou atualizados
-- [ ] Documentação atualizada
-- [ ] Nenhum secret ou arquivo persistido incluído
-- [ ] Formatação, testes e build concluídos
 ```
 
 Regras obrigatórias:
@@ -526,10 +522,13 @@ Regras obrigatórias:
 - uma entrega deve estar focada em um objetivo;
 - alterações novas devem possuir testes adequados;
 - documentação diretamente relacionada deve ser atualizada;
+- título e descrição devem estar em ingles;
+- usar os cabeçalhos `## Summary` e `## Validation`;
+- listar os comandos realmente executados e informar resultados relevantes, incluindo a quantidade de testes quando disponível;
+- não adicionar checklist genérico: seguir o formato conciso das PRs existentes;
 - nenhuma credencial pode ser incluída;
 - nenhum arquivo de estado pode ser incluído;
 - nenhuma dependência deve ser adicionada sem necessidade;
-- o resultado dos testes deve ser informado;
 - mudanças maiores devem ser divididas em PRs menores;
 - o PR não deve ser criado até a validação local estar concluída.
 
