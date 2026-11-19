@@ -1,0 +1,563 @@
+# Padroes do projeto
+
+Este documento define como codigo, testes e arquivos devem ser escritos no AI Twitch Bot.
+
+## 1. Principios gerais
+
+- preferir codigo simples e direto;
+- preservar tipagem estrita;
+- adicionar validacao na fronteira dos dados externos;
+- separar parsing, regras de negocio, transporte e persistencia;
+- usar pequenas funcoes com responsabilidade unica;
+- testar sucesso e caminhos de falha;
+- nao registrar dados sensiveis;
+- nao adicionar dependencias quando a API padrao resolver.
+
+Quando houver conflito entre concisao e clareza, preferir clareza.
+
+## 2. Padrao de funcoes
+
+Todas as funcoes novas devem usar arrow functions.
+
+```ts
+const parseName = (value: string): string => {
+  return value.trim();
+};
+
+export const loadStatus = (): string => {
+  return "enabled";
+};
+```
+
+Funcoes async tambem usam arrow functions:
+
+```ts
+const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+  await client.disconnect();
+};
+
+export const statusCommand: CommandHandler = async ({ reply }): Promise<void> => {
+  await reply("AI is enabled.");
+};
+```
+
+Funcoes que podem ser reutilizadas devem ser exportadas como constantes.
+
+```ts
+export const isModerator = (tags: ChatUserstate): boolean => {
+  return tags.mod === true;
+};
+```
+
+Nao criar novas declarations com `function`.
+
+```ts
+// nao fazer
+function parseName(value: string): string {}
+
+// fazer
+const parseName = (value: string): string => {};
+```
+
+## 3. Tipagem
+
+- habilitar strict mode;
+- tipar parametros, retornos publicos e objetos externos;
+- inferir tipos locais simples;
+- evitar `any`;
+- evitar casts desnecessarios;
+- validar `unknown` antes de usar como objeto;
+- preferir tipos pequenos e colocados perto do uso;
+- usar `readonly` quando uma colecao nao dever ser alterada;
+- usar interfaces somente quando houver extensao ou semantica de implementacao.
+
+Exemplo:
+
+```ts
+type AiResponse = {
+  answer: string;
+};
+
+const parseResponse = (value: unknown): AiResponse | null => {
+  if (typeof value !== "object" || value === null) return null;
+
+  const answer = (value as { answer?: unknown }).answer;
+  if (typeof answer !== "string") return null;
+
+  return { answer };
+};
+```
+
+Nao usar `as unknown as T` como atalho.
+
+## 4. Imports
+
+- usar imports relativos explicitos;
+- incluir `.js` em imports locais de codigo TypeScript;
+- usar `import type` para tipos;
+- agrupar imports externos antes dos locais;
+- nao criar dependencias circulares;
+- nao importar uma implementacao quando apenas um contrato for necessario.
+
+Exemplo:
+
+```ts
+import type tmi from "tmi.js";
+import type { CommandHandler } from "../types/commands.js";
+import { isModerator } from "../shared/permissions.js";
+```
+
+## 5. Estrutura de arquivos
+
+Cada comando deve ficar em seu proprio diretorio:
+
+```text
+src/commands/<nome>/
+  index.ts
+  <nome>.test.ts
+```
+
+O `index.ts` do comando deve expor apenas seu handler ou fabrica relacionada.
+
+```ts
+export const pingCommand: CommandHandler = async ({ reply }): Promise<void> => {
+  await reply("Pong.");
+};
+```
+
+Testes ficam no mesmo nivel do modulo testado ou em seu diretorio.
+
+Codigo compartilhado fica em:
+
+```text
+src/commands/shared/
+```
+
+Servicos externos ficam em:
+
+```text
+src/services/
+```
+
+Utilidades puras ficam em:
+
+```text
+src/utils/
+```
+
+## 6. Comandos Twitch
+
+- todo handler implementa `CommandHandler`;
+- comandos sem argumento devem validar argumento vazio;
+- argumentos invalidos devem retornar erro curto de uso;
+- nomes de comandos devem ser tratados em minusculas;
+- todo reply deve passar pela funcao injetada no contexto;
+- comandos administrativos devem usar a permissao centralizada;
+- respostas administrativas devem permanecer em ingles;
+- respostas geradas devem seguir o idioma configurado;
+- mensagens enviadas ao Twitch devem respeitar o limite configurado.
+
+Exemplo:
+
+```ts
+export const statusCommand: CommandHandler = async ({ reply, tags }): Promise<void> => {
+  if (!isModerator(tags)) {
+    await reply("Only moderators and the broadcaster can use this command.");
+    return;
+  }
+
+  await reply("Status.");
+};
+```
+
+Comandos novos devem ser registrados em `src/commands/router.ts`.
+
+## 7. Validacao
+
+- validar variaveis de ambiente no inicio;
+- validar JSON antes de acessar propriedades;
+- validar argumentos de comando;
+- validar respostas externas;
+- converter entradas brutas apenas uma vez;
+- usar limites positivos e seguros;
+- impedir tamanho excessivo de input;
+- falhar antes de realizar efeitos externos.
+
+Exemplo:
+
+```ts
+const value = process.env.MAX_PENDING_QUESTIONS?.trim();
+if (!value || !Number.isSafeInteger(Number(value)) || Number(value) <= 0) {
+  throw new Error("MAX_PENDING_QUESTIONS must be a positive safe integer.");
+}
+```
+
+## 8. Erros
+
+- lancar erros com contexto util;
+- usar `unknown` em catches;
+- nao expor payload, URL privada ou secret;
+- relatar falhas persistidas sem alterar o estado anterior;
+- registrar o erro apenas no ponto de tratamento adequado;
+- nao engolir erro silenciosamente;
+- nao tentar continuar um processo em estado desconhecido.
+
+Exemplo:
+
+```ts
+try {
+  writeState(value);
+} catch (error) {
+  throw new Error("Failed to persist AI state.", { cause: error });
+}
+```
+
+Para mensagens de Twitch, fornecer uma resposta curta e nao tecnica.
+
+## 9. Persistencia
+
+- estado persistente deve ter estrutura valida;
+- arquivo ausente pode ter fallback documentado;
+- JSON invalido nao deve ser silenciosamente substituido;
+- escrita deve preferir operacao atomica;
+- manter o estado anterior se a escrita falhar;
+- nunca registrar ou enviar o conteudo persistido por acidente;
+- nao incluir arquivos de estado no controle de versao.
+
+## 10. APIs externas
+
+- aplicar timeout em toda chamada externa;
+- usar AbortController quando a biblioteca suportar;
+- validar HTTP status;
+- validar JSON;
+- validar campos esperados;
+- registrar outcome, duration e status sem conteudo;
+- nao repetir chamadas infinitamente;
+- nao usar retry em credenciais invalidas.
+
+## 11. Seguranca
+
+- secrets ficam somente em variaveis de ambiente;
+- `.env` nao deve ser versionado;
+- logs nao devem conter question, answer ou credenciais;
+- respostas devem passar por filtros de segurança;
+- instrucoes do usuario nao podem sobrescrever instrucoes internas;
+- qualquer funcionalidade que execute ferramenta deve usar allowlist;
+- nunca executar shell a partir de texto recebido no chat;
+- permissao administrativa deve ser centralizada.
+
+## 12. Cooldowns e filas
+
+- cooldown global e por usuario devem ser separados;
+- perguntas aceitas devem entrar na fila;
+- fila deve ter limite configurado;
+- uma falha nao pode bloquear o item seguinte;
+- timeout deve liberar o item ativo;
+- status da fila deve ser separado de status da IA;
+- limpeza da fila nao deve cancelar uma pergunta ativa.
+
+## 13. Logs
+
+Usar JSON estruturado para eventos novos:
+
+```ts
+console.info(
+  JSON.stringify({
+    event: "gemini.request",
+    outcome: "success",
+    durationMs: 842,
+  }),
+);
+```
+
+Campos proibidos em logs:
+
+- pergunta completa;
+- resposta completa;
+- API key;
+- OAuth token;
+- password;
+- payload bruto do provedor;
+- secrets em mensagens de erro.
+
+## 14. Testes
+
+Usar Node Test com `node:test` e `node:assert/strict`.
+
+Testes devem:
+
+- testar comportamento observavel;
+- cobrir sucesso e falha;
+- usar fakes injetaveis;
+- evitar rede real;
+- isolar variaveis de ambiente;
+- limpar arquivos temporarios;
+- nao depender de estado global entre testes.
+
+Exemplo:
+
+```ts
+test("parseCommand handles command text", () => {
+  assert.deepEqual(parseCommand("!question hello"), {
+    name: "question",
+    args: ["hello"],
+    text: "hello",
+  });
+});
+```
+
+Cada comportamento novo deve ter teste focado.
+
+## 15. Nomeacao
+
+- arquivos: kebab-case, exceto arquivos de entrypoint;
+- diretorios: kebab-case;
+- constantes: camelCase;
+- tipos: PascalCase;
+- classes: PascalCase;
+- variaveis booleanas: prefixo positivo como `isEnabled`, `canSend` ou `hasPermission`;
+- funcoes que executam acao: verbo no inicio;
+- funcoes que fazem pergunta: `is`, `has`, `can`, `should`;
+- stores: substantivo ou dominio seguido de Store;
+- comandos: nome terminado em `Command`.
+
+Exemplos:
+
+```ts
+const createQuestionCommand = () => {};
+const remainingSeconds = () => 0;
+const isAiEnabled = (): boolean => true;
+const questionQueue = () => {};
+```
+
+## 16. Formatação
+
+- Prettier e `.prettierrc.json` são obrigatorios;
+- executavel novo não deve alterar o estilo global;
+- aspas duplas em TypeScript;
+- ponto e virgula;
+- trailing comma em estruturas multilinha;
+- largura definida pelo Prettier;
+- nao formatar arquivos manualmente contra o Prettier.
+
+Comandos:
+
+```bash
+npm run format
+npm run format:check
+```
+
+## 17. Comentarios
+
+- comentar apenas quando o motivo não estiver claro no codigo;
+- nao comentar instrucoes obvias;
+- manter JSDoc em APIs publicas existentes;
+- JSDoc deve refletir comportamento atual;
+- nao repetir o nome da funcao no comentario.
+
+Exemplo util:
+
+```ts
+// A fila serializa chamadas para evitar concorrencia contra o mesmo provedor.
+const processNextQuestion = (): void => {};
+```
+
+## 18. Testes e validacao
+
+Antes de finalizar uma mudanca:
+
+```bash
+npm run format:check
+npm test
+npm run build
+```
+
+Se formatacao estiver diferente:
+
+```bash
+npm run format
+```
+
+## 19. Branches
+
+O padrao de branch deve ser seguido obrigatoriamente.
+
+Estrutura de branches:
+
+- `main`: branch estável e testada;
+- `feature/<descricao>`: novas funcionalidades;
+- `fix/<descricao>`: correcoes de bugs;
+- `hotfix/<descricao>`: correcoes urgentes;
+- `docs/<descricao>`: apenas documentação;
+- `refactor/<descricao>`: reestruturacao sem alteração de comportamento;
+- `test/<descricao>`: melhorias focadas em testes.
+
+Usar letras minusculas, kebab-case e uma descricao curta.
+
+Exemplos:
+
+```text
+feature/question-context
+fix/gemini-timeout
+hotfix/invalid-state-file
+docs/project-conventions
+refactor/question-queue
+test/gemini-failure-paths
+```
+
+Fluxo obrigatório:
+
+```bash
+git checkout main
+git pull --ff-only
+git checkout -b feature/minha-funcionalidade
+```
+
+Nao trabalhar diretamente em `main`.
+
+Manter cada branch focada em uma entrega. Branches com documentacao não devem incluir implementacao de funcionalidades, salvo quando a documentação documentar diretamente essa implementação.
+
+Antes de criar a branch, garantir que o estado local não possui alterações não relacionadas.
+
+## 20. Commits
+
+Commits devem seguir o padrão Conventional Commits e são obrigatórios.
+
+Formato:
+
+```text
+tipo: descrição curta no imperativo
+```
+
+Tipos aceitos:
+
+- `feat`: nova funcionalidade;
+- `fix`: correção de bug;
+- `docs`: documentação;
+- `refactor`: mudança interna sem alterar comportamento;
+- `test`: testes;
+- `perf`: melhoria de desempenho;
+- `build`: sistema de build ou dependências;
+- `ci`: integração contínua;
+- `chore`: manutenção que não se encaixa em outro tipo.
+
+Exemplos válidos:
+
+```text
+feat: add question context
+fix: prevent queue blocking after timeout
+docs: document project conventions
+refactor: standardize functions with arrow functions
+test: cover corrupted state files
+```
+
+Regras:
+
+- usar inglês;
+- usar imperativo;
+- não começar com letra maiúscula;
+- não terminar com ponto;
+- manter a primeira linha com no máximo 72 caracteres;
+- cada commit deve representar uma alteração coerente;
+- não misturar funcionalidade, refactor amplo e documentação em um mesmo commit;
+- não commitar secrets, arquivos de estado ou arquivos temporários;
+- todo commit criado pelo Copilot deve incluir o trailer:
+
+```text
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+Exemplo completo:
+
+```text
+docs: add project conventions
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+## 21. Pull requests
+
+O padrão de Pull Request deve ser seguido obrigatoriamente.
+
+Regra da branch:
+
+- Pull Requests devem apontar para `main`;
+- não abrir PR de uma branch para outra branch de trabalho;
+- atualizar a branch com `main` antes da revisão;
+- resolver conflitos na branch de origem.
+
+Título do PR:
+
+- seguir o mesmo padrão de Conventional Commits;
+- ser curto e descrevível.
+
+Exemplos:
+
+```text
+docs: add project conventions
+feat: add question context
+fix: prevent queue blocking after timeout
+```
+
+Descrição do PR deve conter:
+
+```md
+## Resumo
+
+- descreva o que mudou;
+- explique o motivo da mudança.
+
+## Como testar
+
+- `npm run format:check`
+- `npm test`
+- `npm run build`
+
+## Checklist
+
+- [ ] Testes adicionados ou atualizados
+- [ ] Documentação atualizada
+- [ ] Nenhum secret ou arquivo persistido incluído
+- [ ] Formatação, testes e build concluídos
+```
+
+Regras obrigatórias:
+
+- uma entrega deve estar focada em um objetivo;
+- alterações novas devem possuir testes adequados;
+- documentação diretamente relacionada deve ser atualizada;
+- nenhuma credencial pode ser incluída;
+- nenhum arquivo de estado pode ser incluído;
+- nenhuma dependência deve ser adicionada sem necessidade;
+- o resultado dos testes deve ser informado;
+- mudanças maiores devem ser divididas em PRs menores;
+- o PR não deve ser criado até a validação local estar concluída.
+
+Quando aplicável, vincular issue ou tarefa relacionada no corpo do PR.
+
+Antes de abrir o PR:
+
+```bash
+git fetch origin
+git rebase origin/main
+npm run format:check
+npm test
+npm run build
+git push --force-with-lease
+```
+
+Para branches que ainda não estão prontas, abrir como Draft.
+
+## 22. Padrao para novas funcionalidades
+
+Para adicionar uma nova funcionalidade:
+
+1. criar o teste do comportamento;
+2. validar limites e entradas;
+3. criar funcoes arrow com tipagem estrita;
+4. reutilizar helpers existentes;
+5. adicionar tratamento de falha;
+6. evitar logar dados sensiveis;
+7. registrar o comando ou serviço no fluxo existente;
+8. atualizar README ou documento de convenções quando necessário;
+9. executar formatacao, testes e build.
