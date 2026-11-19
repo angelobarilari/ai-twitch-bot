@@ -40,25 +40,9 @@ The bot supports a complete Twitch chat flow: viewers can ask questions, check w
 .
 ├── src/
 │   ├── commands/
-│   │   ├── about/
+│   │   ├── <command>/
 │   │   │   ├── index.ts
-│   │   │   └── about.test.ts
-│   │   ├── ai/
-│   │   │   ├── index.ts
-│   │   │   └── ai.test.ts
-│   │   ├── help/
-│   │   │   ├── index.ts
-│   │   │   └── help.test.ts
-│   │   ├── language/
-│   │   │   └── index.ts
-│   │   ├── ping/
-│   │   │   └── index.ts
-│   │   ├── queue/
-│   │   │   └── index.ts
-│   │   ├── question/
-│   │   │   └── index.ts
-│   │   ├── status/
-│   │   │   └── index.ts
+│   │   │   └── <command>.test.ts
 │   │   ├── shared/
 │   │   │   ├── ai-state.ts
 │   │   │   └── permissions.ts
@@ -70,10 +54,18 @@ The bot supports a complete Twitch chat flow: viewers can ask questions, check w
 │   ├── services/
 │   │   ├── gemini.ts
 │   │   ├── gemini.test.ts
-│   │   └── response-language.ts
+│   │   ├── response-language.ts
+│   │   ├── response-language.test.ts
+│   │   ├── shutdown.ts
+│   │   ├── shutdown.test.ts
+│   │   ├── twitch-client-options.ts
+│   │   └── twitch-client-options.test.ts
+│   ├── test-support/
+│   │   └── with-test-environment.ts
 │   ├── utils/
-│   │   ├── chat.ts
-│   │   └── chat.test.ts
+│   │   └── <utility-name>/
+│   │       ├── index.ts
+│   │       └── <utility-name>.test.ts
 │   ├── config.ts
 │   ├── config.test.ts
 │   └── index.ts
@@ -87,7 +79,7 @@ The bot supports a complete Twitch chat flow: viewers can ask questions, check w
 └── .vscode/
 ```
 
-Each command folder exposes its handler through `index.ts`. Command-specific tests sit beside their implementation where applicable, while parsing and dispatch integration tests live in `router.test.ts`. `commands/index.ts` re-exports public handlers and command types; `commands/router.ts` handles parsing and dispatch, and shared command state and permission helpers live in `commands/shared/`.
+The command folders are `about`, `ai`, `help`, `language`, `ping`, `question`, `queue`, and `status`. Each exposes its handler through `index.ts` and keeps focused tests beside it. Utilities follow the same pattern in individual kebab-case directories. `commands/index.ts` re-exports public handlers and command types; `commands/router.ts` handles parsing and dispatch, and shared command state and permission helpers live in `commands/shared/`.
 
 ## Requirements
 
@@ -130,8 +122,13 @@ TWITCH_CHANNEL=your_channel_name
 GEMINI_API_KEY=your_google_ai_studio_key
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_LANGUAGE=auto
-AI_STATE_FILE=.ai-state.json
-AI_LANGUAGE_FILE=.ai-language.json
+GEMINI_TIMEOUT_MS=10000
+GEMINI_MAX_RETRIES=1
+GEMINI_RETRY_BASE_DELAY_MS=250
+QUESTION_TIMEOUT_MS=45000
+QUESTION_QUEUE_TIMEOUT_MS=120000
+AI_STATE_FILE=.data/ai-state.json
+AI_LANGUAGE_FILE=.data/ai-language.json
 COMMAND_COOLDOWN_SECONDS=15
 USER_COOLDOWN_SECONDS=30
 MAX_QUESTION_LENGTH=300
@@ -143,13 +140,17 @@ Notes:
 
 - `TWITCH_CHANNEL` can be passed as `#channel` or `channel`.
 - `GEMINI_LANGUAGE` defaults to `auto`, so answers use the language of the question unless the viewer explicitly requests another language. It is the initial response language when there is no saved `!language` preference.
-- `AI_LANGUAGE_FILE` stores the channel-wide response language selected with `!language`; it defaults to `.ai-language.json` in the working directory and is git-ignored.
+- `AI_LANGUAGE_FILE` stores the channel-wide response language selected with `!language`; the default `.data/ai-language.json` path is git-ignored. When using that path, the bot migrates a valid legacy `.ai-language.json` file.
 - Any viewer can change this channel-wide preference with `!language`, and the latest selection applies to all viewers. The command accepts `auto` or a language name up to 40 characters.
 - If the saved language file is unreadable or invalid, startup reports an error instead of silently resetting the preference. A failed save is reported in chat and leaves the previous language active.
-- `AI_STATE_FILE` stores whether AI responses are enabled; it defaults to `.ai-state.json` in the working directory, which is git-ignored. If it does not exist, the AI defaults to enabled. If you choose a custom path, keep that file out of version control.
+- `AI_STATE_FILE` stores whether AI responses are enabled; the default `.data/ai-state.json` path is git-ignored. If it does not exist, the AI defaults to enabled. When using the default path, the bot migrates a valid legacy `.ai-state.json` file. If you choose a custom path, keep that file out of version control.
 - If the state file is unreadable or contains invalid data, startup reports an error instead of silently resetting the moderator-selected state.
-- Numeric values must be positive finite numbers. `MAX_PENDING_QUESTIONS` must be a positive safe integer.
-- `MAX_PENDING_QUESTIONS` limits the total number of accepted questions being processed or waiting in the queue; its default is `5`.
+- `GEMINI_TIMEOUT_MS` is the timeout for each provider request. `GEMINI_MAX_RETRIES` allows a bounded number of retries for network errors, timeouts, rate limits, and server failures; authentication and other client errors are not retried.
+- `GEMINI_RETRY_BASE_DELAY_MS` controls exponential retry backoff. `QUESTION_TIMEOUT_MS` bounds active processing and must allow two Gemini requests with the configured retry policy. `QUESTION_QUEUE_TIMEOUT_MS` limits how long an accepted question may wait before processing.
+- Persisted JSON state files are limited to 4 KiB and written through an atomic temporary-file replacement.
+- Twitch usernames and OAuth tokens, Gemini model names, and response languages are validated before the client starts.
+- Cooldowns must convert to positive safe millisecond durations. Message lengths, queue limits, and timeout values must be positive safe integers. `GEMINI_MAX_RETRIES` accepts 0 through 5, and `GEMINI_RETRY_BASE_DELAY_MS` accepts 0 through 60000.
+- `MAX_QUESTION_LENGTH` is limited to 500 characters, `MAX_ANSWER_LENGTH` to 2,000 characters, and `MAX_PENDING_QUESTIONS` to 100 accepted questions (active and waiting); defaults are `300`, `420`, and `5`, respectively.
 - Keep `.env` out of version control and never commit real secrets.
 
 ## Commands
@@ -223,11 +224,11 @@ Run the project tests with:
 npm test
 ```
 
-The current automated suite covers AI-state persistence across store instances, default state, invalid state files, and write failures; configuration validation (including the pending-question limit and whitespace-only numeric values); command parsing and dispatch; queue behavior; Gemini request handling; and chat-message splitting. Command tests cover argument extraction, non-command and nameless-prefix rejection, routing `!help`, `!about`, public `!status`, and viewer-accessible channel-wide `!language`, ignoring malformed, unknown, and self-authored commands, and the message-to-Gemini-to-chat response flow using fakes. Gemini tests verify dynamic response-language selection and fixed-language overrides. Failure-path tests cover unavailable Gemini requests, Twitch reply failures, and continued queue processing. Other tests validate cooldown behavior, whitespace normalization, word-boundary splitting, invalid chunk limits, queue rejection when full, and sanitized logging without leaking request content or credentials.
+The automated suite covers startup configuration validation, including operational maxima; AI-state and language persistence, legacy-file migration, atomic replacement and interrupted writes; command-specific behavior and router dispatch; queue limits, timeouts, late Twitch reply failures and shutdown; Gemini retries, cancellation and malformed responses; and utility edge cases. Tests use fakes rather than real Twitch or Gemini network requests. Direct tests exist for every command, including viewer and moderator paths where applicable.
 
 Gemini requests emit structured logs with the outcome, duration in milliseconds, and HTTP status when available. These logs intentionally exclude question/answer contents and API credentials.
 
-Moderators and the broadcaster can use `!ai on` / `!ai off` to control new questions and `!queue` / `!queue clear` to inspect or remove waiting questions. Clearing the queue does not interrupt an answer already in progress. The bot automatically reconnects to Twitch and handles `SIGINT` / `SIGTERM` by disconnecting cleanly.
+Moderators and the broadcaster can use `!ai on` / `!ai off` to control new questions and `!queue` / `!queue clear` to inspect or remove waiting questions. Clearing the queue does not interrupt an answer already in progress. The bot uses tmi.js automatic reconnection with capped exponential backoff. On `SIGINT` / `SIGTERM`, it stops accepting questions, drops waiting questions, drains the active request up to its configured timeout, and disconnects cleanly.
 
 ## Formatting and Git Hooks
 
@@ -241,48 +242,20 @@ npm run format
 
 ## Git Workflow
 
-This project uses a lightweight Git workflow to keep changes organized and easy to review.
+Branches, commits, and pull requests must follow [`PROJECT_CONVENTIONS.md`](./PROJECT_CONVENTIONS.md). Work on a focused branch created from an up-to-date `main`; use the required branch prefix and English kebab-case description. Commit messages and PR titles/descriptions must be in English and follow the documented Conventional Commits and PR formats.
 
-### Recommended branch structure
-
-- `main`: stable branch for tested code
-- `feature/...`: new features or larger enhancements
-- `fix/...`: bug fixes and small corrections
-- `hotfix/...`: urgent runtime fixes
-
-### Typical flow
+Typical flow:
 
 ```bash
-# start from main
 git checkout main
 git pull --ff-only
-
-# create a new branch
 git checkout -b feature/my-feature
-
-# work and commit
-git add .
+git add path/to/changed-file
 git commit -m "feat: add my feature"
-
-# push the branch
 git push -u origin feature/my-feature
 ```
 
-### Before merging
-
-- run the test suite
-- review the diff
-- make sure no secrets are committed
-- open a pull request if collaborating with others
-
-### Useful maintenance commands
-
-```bash
-git status
-git branch
-git pull --ff-only
-git checkout main
-```
+Before opening a PR, rebase on `origin/main`, run formatting, tests, and build, and inspect the diff for secrets or local state files. PRs target `main` and use the `## Summary` and `## Validation` headings.
 
 ## License
 
