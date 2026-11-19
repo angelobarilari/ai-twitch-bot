@@ -13,7 +13,16 @@ test("askGemini sends the API key in the header and uses an abort signal", async
     "GEMINI_MODEL",
     "GEMINI_LANGUAGE",
     "MAX_ANSWER_LENGTH",
+    "MAX_QUESTION_LENGTH",
+    "MAX_PENDING_QUESTIONS",
+    "COMMAND_COOLDOWN_SECONDS",
+    "USER_COOLDOWN_SECONDS",
     "AI_LANGUAGE_FILE",
+    "GEMINI_TIMEOUT_MS",
+    "GEMINI_MAX_RETRIES",
+    "GEMINI_RETRY_BASE_DELAY_MS",
+    "QUESTION_TIMEOUT_MS",
+    "QUESTION_QUEUE_TIMEOUT_MS",
   ] as const;
   const previousValues = new Map(requiredVariables.map((name) => [name, process.env[name]]));
   const calls: Record<string, unknown> = {};
@@ -43,13 +52,22 @@ test("askGemini sends the API key in the header and uses an abort signal", async
     );
   };
 
-  process.env.TWITCH_BOT_USERNAME = "test-bot";
+  process.env.TWITCH_BOT_USERNAME = "test_bot";
   process.env.TWITCH_OAUTH_TOKEN = "oauth:test-token";
   process.env.TWITCH_CHANNEL = "test_channel";
   process.env.GEMINI_API_KEY = "abc123";
   process.env.GEMINI_MODEL = "gemini-2.5-flash";
   process.env.GEMINI_LANGUAGE = "English";
   process.env.MAX_ANSWER_LENGTH = "120";
+  process.env.MAX_QUESTION_LENGTH = "300";
+  process.env.MAX_PENDING_QUESTIONS = "5";
+  process.env.COMMAND_COOLDOWN_SECONDS = "15";
+  process.env.USER_COOLDOWN_SECONDS = "30";
+  process.env.GEMINI_TIMEOUT_MS = "10000";
+  process.env.GEMINI_MAX_RETRIES = "1";
+  process.env.GEMINI_RETRY_BASE_DELAY_MS = "250";
+  process.env.QUESTION_TIMEOUT_MS = "45000";
+  process.env.QUESTION_QUEUE_TIMEOUT_MS = "120000";
   process.env.AI_LANGUAGE_FILE = "unused-test-language-state.json";
 
   try {
@@ -307,6 +325,97 @@ test("askGemini classifies invalid JSON and malformed payloads as invalid respon
       logs.map((entry) => (JSON.parse(entry) as Record<string, unknown>).outcome),
       ["invalid_response", "invalid_response"],
     );
+  } finally {
+    console.error = previousConsoleError;
+  }
+});
+
+test("Gemini requester retries a transient server error and reports the final attempt", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const previousConsoleInfo = console.info;
+  const previousConsoleError = console.error;
+  const logs: string[] = [];
+  let calls = 0;
+  console.info = (message?: unknown) => logs.push(String(message));
+  console.error = (message?: unknown) => logs.push(String(message));
+
+  try {
+    const askGemini = createGeminiRequester({
+      maxRetries: 1,
+      retryBaseDelayMs: 0,
+      fetch: async () => {
+        calls += 1;
+        if (calls === 1) return new Response(null, { status: 503 });
+        return new Response(
+          JSON.stringify({ candidates: [{ content: { parts: [{ text: "Recovered." }] } }] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+
+    assert.equal(await askGemini("question"), "Recovered.");
+    assert.equal(calls, 2);
+    const requestLog = JSON.parse(logs[0] ?? "{}") as Record<string, unknown>;
+    assert.equal(requestLog.event, "gemini.request");
+    assert.equal(requestLog.outcome, "success");
+    assert.equal(requestLog.attempts, 2);
+    assert.equal(typeof requestLog.durationMs, "number");
+  } finally {
+    console.info = previousConsoleInfo;
+    console.error = previousConsoleError;
+  }
+});
+
+test("Gemini requester does not retry permanent client errors", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const previousConsoleError = console.error;
+  const logs: string[] = [];
+  let calls = 0;
+  console.error = (message?: unknown) => logs.push(String(message));
+
+  try {
+    const askGemini = createGeminiRequester({
+      maxRetries: 3,
+      retryBaseDelayMs: 0,
+      fetch: async () => {
+        calls += 1;
+        return new Response(null, { status: 401 });
+      },
+    });
+
+    assert.equal(await askGemini("question"), null);
+    assert.equal(calls, 1);
+    const requestLog = JSON.parse(logs[0] ?? "{}") as Record<string, unknown>;
+    assert.equal(requestLog.outcome, "http_error");
+    assert.equal(requestLog.status, 401);
+    assert.equal(requestLog.attempts, 1);
+  } finally {
+    console.error = previousConsoleError;
+  }
+});
+
+test("Gemini requester cancels retries when the caller aborts", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const previousConsoleError = console.error;
+  const logs: string[] = [];
+  const controller = new AbortController();
+  let calls = 0;
+  console.error = (message?: unknown) => logs.push(String(message));
+
+  try {
+    const askGemini = createGeminiRequester({
+      maxRetries: 2,
+      retryBaseDelayMs: 0,
+      fetch: async () => {
+        calls += 1;
+        controller.abort();
+        throw new DOMException("Request aborted", "AbortError");
+      },
+    });
+
+    assert.equal(await askGemini("question", { signal: controller.signal }), null);
+    assert.equal(calls, 1);
+    assert.equal((JSON.parse(logs[0] ?? "{}") as Record<string, unknown>).outcome, "cancelled");
   } finally {
     console.error = previousConsoleError;
   }
