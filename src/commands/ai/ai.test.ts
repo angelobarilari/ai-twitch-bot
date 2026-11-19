@@ -123,9 +123,9 @@ test("AI state migrates a valid legacy default file into the data directory", ()
 
 test("AI state remains unchanged when persistence fails", () => {
   const blockingPath = join(stateDirectory, "not-a-directory");
-  writeFileSync(blockingPath, "file");
   const filePath = join(blockingPath, "state.json");
   const store = createAiStateStore(filePath);
+  writeFileSync(blockingPath, "file");
 
   assert.throws(() => store.setEnabled(false), /Failed to persist AI state/);
   assert.equal(store.isEnabled(), true);
