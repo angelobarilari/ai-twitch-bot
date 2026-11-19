@@ -49,6 +49,21 @@ export const isModerator = (tags: ChatUserstate): boolean => {
 };
 ```
 
+Toda funcao nova nomeada deve ter um bloco JSDoc imediatamente antes da declaracao, seja publica ou privada. O bloco deve explicar o comportamento, documentar cada parametro com `@param` e o resultado com `@returns`; incluir `@throws` quando a funcao puder lancar erros esperados. Para funcoes sem parametros ou sem valor de retorno, ainda documentar esses fatos. Callbacks anonimos e funcoes usadas somente dentro de testes nao precisam de JSDoc.
+
+```ts
+/**
+ * Splits a response into chunks that fit within the chat message limit.
+ *
+ * @param message Response text to split.
+ * @param maxLength Maximum length allowed per chunk.
+ * @returns Trimmed chunks, preferring to split at word boundaries.
+ */
+export const splitForTwitch = (message: string, maxLength: number): string[] => {
+  // ...
+};
+```
+
 Nao criar novas declarations com `function`.
 
 ```ts
@@ -144,6 +159,20 @@ Utilidades puras ficam em:
 ```text
 src/utils/
 ```
+
+Cada utilitario independente deve ter seu proprio diretorio, nomeado em kebab-case a partir do nome da funcao, com a implementacao em `index.ts` e seu teste focado no mesmo diretorio:
+
+```text
+src/utils/
+  split-for-twitch/
+    index.ts
+    split-for-twitch.test.ts
+  remaining-seconds/
+    index.ts
+    remaining-seconds.test.ts
+```
+
+Nao agrupar funcoes utilitarias independentes em um arquivo generico. Constantes e helpers privados podem ficar com o utilitario ao qual pertencem; funcoes reutilizadas por mais de um utilitario devem ter um diretorio proprio e testes proprios.
 
 ## 6. Comandos Twitch
 
@@ -293,6 +322,10 @@ Testes devem:
 - isolar variaveis de ambiente;
 - limpar arquivos temporarios;
 - nao depender de estado global entre testes.
+- cada comando deve ter testes diretos em `<comando>/<comando>.test.ts`, alem dos testes de integracao do roteador;
+- cada utilitario deve ter testes focados no mesmo diretorio da implementacao.
+
+Os testes diretos dos comandos devem cobrir os caminhos principais e limites relevantes, como argumentos invalidos, permissoes, persistencia ou falhas externas quando aplicavel.
 
 Exemplo:
 

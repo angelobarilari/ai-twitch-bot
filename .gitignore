@@ -3,3 +3,4 @@ dist/
 .env
 .ai-state.json
 .ai-language.json
+.data/

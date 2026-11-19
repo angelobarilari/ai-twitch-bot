@@ -89,16 +89,43 @@ test("AI state defaults to enabled and persists changes across store instances",
 test("AI state rejects malformed or invalid persisted data", () => {
   const malformedPath = join(stateDirectory, "malformed-state.json");
   const invalidPath = join(stateDirectory, "invalid-state.json");
+  const oversizedPath = join(stateDirectory, "oversized-state.json");
   writeFileSync(malformedPath, "{");
   writeFileSync(invalidPath, JSON.stringify({ enabled: "false" }));
+  writeFileSync(oversizedPath, "x".repeat(4097));
 
   assert.throws(() => createAiStateStore(malformedPath), /not valid JSON/);
   assert.throws(() => createAiStateStore(invalidPath), /must contain a boolean/);
+  assert.throws(() => createAiStateStore(oversizedPath), /Failed to read persisted AI state/);
+});
+
+test("AI state migrates a valid legacy default file into the data directory", () => {
+  const previousCwd = process.cwd();
+  const previousFilePath = process.env.AI_STATE_FILE;
+  process.chdir(stateDirectory);
+  process.env.AI_STATE_FILE = ".data/ai-state.json";
+  const legacyPath = join(stateDirectory, ".ai-state.json");
+  const migratedPath = join(stateDirectory, ".data", "ai-state.json");
+  writeFileSync(legacyPath, '{"enabled":false}\n');
+
+  try {
+    const store = createAiStateStore();
+    assert.equal(store.isEnabled(), false);
+    assert.equal(readFileSync(migratedPath, "utf8"), '{"enabled":false}\n');
+    process.env.AI_STATE_FILE = " ";
+    assert.equal(createAiStateStore().isEnabled(), false);
+  } finally {
+    process.chdir(previousCwd);
+    if (typeof previousFilePath === "undefined") delete process.env.AI_STATE_FILE;
+    else process.env.AI_STATE_FILE = previousFilePath;
+  }
 });
 
 test("AI state remains unchanged when persistence fails", () => {
-  const filePath = join(stateDirectory, "missing-directory", "state.json");
+  const blockingPath = join(stateDirectory, "not-a-directory");
+  const filePath = join(blockingPath, "state.json");
   const store = createAiStateStore(filePath);
+  writeFileSync(blockingPath, "file");
 
   assert.throws(() => store.setEnabled(false), /Failed to persist AI state/);
   assert.equal(store.isEnabled(), true);
@@ -109,6 +136,7 @@ test("aiCommand reports persistence failures without changing the state", async 
   const replies: string[] = [];
   const loggedErrors: unknown[][] = [];
   rmSync(stateDirectory, { recursive: true, force: true });
+  writeFileSync(stateDirectory, "not a directory");
   console.error = (...args: unknown[]) => {
     loggedErrors.push(args);
   };

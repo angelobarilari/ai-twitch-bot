@@ -24,16 +24,40 @@ before(async () => {
     "TWITCH_OAUTH_TOKEN",
     "TWITCH_CHANNEL",
     "GEMINI_API_KEY",
+    "GEMINI_MODEL",
+    "GEMINI_LANGUAGE",
+    "GEMINI_TIMEOUT_MS",
+    "GEMINI_MAX_RETRIES",
+    "GEMINI_RETRY_BASE_DELAY_MS",
+    "QUESTION_TIMEOUT_MS",
+    "QUESTION_QUEUE_TIMEOUT_MS",
+    "MAX_ANSWER_LENGTH",
+    "COMMAND_COOLDOWN_SECONDS",
+    "USER_COOLDOWN_SECONDS",
+    "MAX_QUESTION_LENGTH",
+    "MAX_PENDING_QUESTIONS",
   ] as const;
   const previousValues = new Map(requiredVariables.map((name) => [name, process.env[name]]));
   stateDirectory = mkdtempSync(join(tmpdir(), "ai-twitch-bot-command-test-"));
   previousStateFile = process.env.AI_STATE_FILE;
   previousLanguageFile = process.env.AI_LANGUAGE_FILE;
 
-  process.env.TWITCH_BOT_USERNAME = "test-bot";
+  process.env.TWITCH_BOT_USERNAME = "test_bot";
   process.env.TWITCH_OAUTH_TOKEN = "oauth:test-token";
   process.env.TWITCH_CHANNEL = "test_channel";
   process.env.GEMINI_API_KEY = "test-api-key";
+  process.env.GEMINI_MODEL = "gemini-2.5-flash";
+  process.env.GEMINI_LANGUAGE = "auto";
+  process.env.GEMINI_TIMEOUT_MS = "10000";
+  process.env.GEMINI_MAX_RETRIES = "1";
+  process.env.GEMINI_RETRY_BASE_DELAY_MS = "250";
+  process.env.QUESTION_TIMEOUT_MS = "45000";
+  process.env.QUESTION_QUEUE_TIMEOUT_MS = "120000";
+  process.env.MAX_ANSWER_LENGTH = "420";
+  process.env.COMMAND_COOLDOWN_SECONDS = "15";
+  process.env.USER_COOLDOWN_SECONDS = "30";
+  process.env.MAX_QUESTION_LENGTH = "300";
+  process.env.MAX_PENDING_QUESTIONS = "5";
   process.env.AI_STATE_FILE = join(stateDirectory, "state.json");
   process.env.AI_LANGUAGE_FILE = join(stateDirectory, "language.json");
 
@@ -242,6 +266,117 @@ test("question flow reports Gemini failure and continues processing later reques
   } finally {
     console.error = previousConsoleError;
   }
+});
+
+test("question flow times out a stuck request and continues processing the queue", async () => {
+  const replies: string[] = [];
+  let currentTime = 100_000;
+  let calls = 0;
+  const client = new tmi.Client({ channels: [] });
+  client.say = async (_channel, message) => {
+    replies.push(message);
+    return [message];
+  };
+  const questionCommand = createQuestionCommand(
+    async () => {
+      calls += 1;
+      if (calls === 1) return new Promise<string>(() => {});
+      return "The queue recovered.";
+    },
+    () => currentTime,
+    10,
+  );
+  const handleMessage = createMessageHandler(client, new Map([["question", questionCommand]]));
+
+  await handleMessage("test_channel", { username: "viewer-one" }, "!question first", false);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(questionCommand.getQueueStatus().active, false);
+
+  currentTime += config.commandCooldownMs + 1;
+  await handleMessage("test_channel", { username: "viewer-two" }, "!question second", false);
+
+  assert.deepEqual(replies, [
+    "The AI request timed out. Please try again later.",
+    "The queue recovered.",
+  ]);
+  assert.equal(calls, 2);
+  assert.deepEqual(questionCommand.getQueueStatus(), { active: false, waiting: 0 });
+});
+
+test("question queue expires waiting requests after the configured wait limit", async () => {
+  const replies: string[] = [];
+  let currentTime = 100_000;
+  let calls = 0;
+  const command = createQuestionCommand(
+    async () => {
+      calls += 1;
+      return new Promise<string>(() => {});
+    },
+    () => currentTime,
+    100,
+    10,
+  );
+  const makeContext = (username: string) => ({
+    channel: "test_channel",
+    tags: { username },
+    args: [],
+    text: "question",
+    reply: async (message: string) => {
+      replies.push(message);
+    },
+  });
+
+  const activeQuestion = command(makeContext("viewer-one"));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  currentTime += config.commandCooldownMs + 1;
+  const waitingQuestion = command(makeContext("viewer-two"));
+
+  await waitingQuestion;
+  assert.equal(command.getQueueStatus().waiting, 0);
+  assert.equal(calls, 1);
+  assert.ok(replies.includes("Your question expired while waiting in the queue."));
+
+  command.stopAccepting();
+  await activeQuestion;
+});
+
+test("question command stops accepting new work and drains the active request", async () => {
+  const replies: string[] = [];
+  let calls = 0;
+  const command = createQuestionCommand(
+    async () => {
+      calls += 1;
+      return new Promise<string>(() => {});
+    },
+    Date.now,
+    10,
+  );
+  const context = {
+    channel: "test_channel",
+    tags: { username: "viewer" },
+    args: [],
+    text: "question",
+    reply: async (message: string) => {
+      replies.push(message);
+    },
+  };
+
+  const activeQuestion = command(context);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  command.stopAccepting();
+
+  await command({
+    ...context,
+    tags: { username: "another-viewer" },
+  });
+  await activeQuestion;
+  await command.waitForIdle();
+
+  assert.equal(calls, 1);
+  assert.deepEqual(replies, [
+    "The bot is shutting down. Please try again later.",
+    "The AI request timed out. Please try again later.",
+  ]);
 });
 
 test("question flow blocks unsafe Gemini answers and continues processing later requests", async () => {

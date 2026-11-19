@@ -8,6 +8,7 @@ Cada fase deve ser concluída antes da seguinte. Não avançar para novas funcio
 
 O projeto já possui:
 
+- Fase 1 implementada e validada localmente; aguarda revisão e integração antes do início da Fase 2;
 - conexão com Twitch usando `tmi.js`;
 - comandos modulares;
 - integração com Gemini;
@@ -32,46 +33,46 @@ O projeto já possui:
 
 ### Configuração
 
-- [ ] Validar todas as variáveis na inicialização.
-- [ ] Validar nome do canal, OAuth, API key, modelo e valores numéricos.
-- [ ] Impedir combinações impossíveis de limites.
-- [ ] Encerrar com código não zero e mensagem clara quando a configuração estiver inválida.
-- [ ] Adicionar exemplo completo de configuração em `.env.example`.
+- [x] Validar todas as variáveis na inicialização.
+- [x] Validar nome do canal, OAuth, API key, modelo e valores numéricos.
+- [x] Impedir combinações impossíveis de limites.
+- [x] Encerrar com código não zero e mensagem clara quando a configuração estiver inválida.
+- [x] Adicionar exemplo completo de configuração em `.env.example`.
 
 ### Persistência
 
-- [ ] Implementar escrita atomica de arquivos JSON.
-- [ ] Usar arquivo temporário e renomeação ao salvar estado e idioma.
-- [ ] Tratadores específicos para arquivo ausente, corrompido, sem permissão e somente leitura.
-- [ ] Manter o valor anterior em memória quando uma gravação falhar.
-- [ ] Criar um diretório dedicado para dados persistentes.
-- [ ] Impedir o uso de arquivos persistentes com tamanho excessivo.
-- [ ] Nunca versionar arquivos de estado ou secrets.
+- [x] Implementar escrita atomica de arquivos JSON.
+- [x] Usar arquivo temporário e renomeação ao salvar estado e idioma.
+- [x] Tratadores específicos para arquivo ausente, corrompido, sem permissão e somente leitura.
+- [x] Manter o valor anterior em memória quando uma gravação falhar.
+- [x] Criar um diretório dedicado para dados persistentes.
+- [x] Impedir o uso de arquivos persistentes com tamanho excessivo.
+- [x] Nunca versionar arquivos de estado ou secrets.
 
 ### Fila
 
-- [ ] Adicionar timeout para uma pergunta ativa.
-- [ ] Garantir que timeout ou erro sempre libera a fila.
-- [ ] Remover respostas pendentes que ultrapassem o tempo máximo.
-- [ ] Impedir que uma falha interna bloqueie o próximo item.
-- [ ] Definir e testar o limite de espera da fila.
-- [ ] Preservar a execução da fila durante falhas no Twitch reply.
+- [x] Adicionar timeout para uma pergunta ativa.
+- [x] Garantir que timeout ou erro sempre libera a fila.
+- [x] Remover perguntas pendentes que ultrapassem o tempo máximo de espera.
+- [x] Impedir que uma falha interna bloqueie o próximo item.
+- [x] Definir e testar o limite de espera da fila.
+- [x] Preservar a execução da fila durante falhas no Twitch reply.
 
 ### Respostas do Gemini
 
-- [ ] Padronizar timeout, erro HTTP, rede, resposta vazia e resposta inválida.
-- [ ] Aplicar backoff limitado para erros recuperáveis.
-- [ ] Impedir retry em erros de autenticação ou configuração.
-- [ ] Definir limite de tentativas e timeout total.
-- [ ] Validar novamente a resposta antes de enviar ao Twitch.
+- [x] Padronizar timeout, erro HTTP, rede, resposta vazia e resposta inválida.
+- [x] Aplicar backoff limitado para erros recuperáveis.
+- [x] Impedir retry em erros de autenticação ou configuração.
+- [x] Definir limite de tentativas e timeout total.
+- [x] Validar novamente a resposta antes de enviar ao Twitch.
 
 ### Conexao Twitch
 
-- [ ] Padronizar mensagens de conexão, reconexão e desconexão.
-- [ ] Adicionar limite ou backoff às reconexões excessivas.
-- [ ] Garantir shutdown previsível com `SIGINT` e `SIGTERM`.
-- [ ] Não iniciar novas perguntas durante o encerramento.
-- [ ] Esperar ou cancelar operações já iniciadas antes de sair.
+- [x] Padronizar mensagens de conexão, reconexão e desconexão.
+- [x] Configurar backoff exponencial limitado nas reconexões.
+- [x] Garantir shutdown previsível com `SIGINT` e `SIGTERM`.
+- [x] Não iniciar novas perguntas durante o encerramento.
+- [x] Esperar ou cancelar operações já iniciadas antes de sair.
 
 ## Criterios de conclusao
 
@@ -87,13 +88,14 @@ O projeto já possui:
 - configuração ausente ou inválida;
 - arquivos JSON corrompidos;
 - falha de escrita;
-- interrupção durante a escrita;
+- interrupção durante a escrita temporária, preservando o arquivo anterior;
 - timeout real;
 - fila cheia e fila vazia;
 - limpeza da fila durante uma resposta ativa;
 - fallback após falha do Gemini;
 - falha no reply do Twitch;
-- reconexão e shutdown.
+- configuração de reconexão com backoff limitado;
+- recebimento de `SIGINT` e `SIGTERM`, drenagem da fila e desconexão.
 
 ---
 
@@ -497,12 +499,4 @@ Exemplos futuros de ferramentas:
 
 # Próxima entrega recomendada
 
-Começar pela Fase 1, com este conjunto mínimo:
-
-1. persistência atomica;
-2. timeout da pergunta ativa;
-3. padronização de falhas do Gemini;
-4. testes de arquivos corrompidos e falha de escrita;
-5. teste de falha que garante a liberação da fila;
-6. validação ampliada da inicialização;
-7. shutdown previsível.
+Concluir a revisão e integrar a Fase 1. Iniciar a Fase 2 somente depois da integração, priorizando a proteção contra prompt injection e o controle de abuso.

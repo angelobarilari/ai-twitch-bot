@@ -38,6 +38,18 @@ test("loadConfig accepts valid environment values", async () => {
   }
 });
 
+test("loadConfig rejects missing required environment variables", async () => {
+  const snapshot = { ...process.env };
+  delete process.env.TWITCH_BOT_USERNAME;
+
+  try {
+    const { loadConfig } = await import("./config.js");
+    assert.throws(() => loadConfig(), /TWITCH_BOT_USERNAME/);
+  } finally {
+    restoreEnv(snapshot);
+  }
+});
+
 test("loadConfig defaults response language to auto-detect", async () => {
   const snapshot = { ...process.env };
   process.env.TWITCH_BOT_USERNAME = "bot";
@@ -117,6 +129,84 @@ test("loadConfig rejects a non-integer pending question limit", async () => {
   try {
     const { loadConfig } = await import("./config.js");
     assert.throws(() => loadConfig(), /MAX_PENDING_QUESTIONS/);
+  } finally {
+    restoreEnv(snapshot);
+  }
+});
+
+test("loadConfig rejects operational question, answer, and queue limits above their maxima", async () => {
+  const snapshot = { ...process.env };
+  process.env.TWITCH_BOT_USERNAME = "bot";
+  process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
+  process.env.TWITCH_CHANNEL = "channel";
+  process.env.GEMINI_API_KEY = "abc123";
+
+  try {
+    const { loadConfig } = await import("./config.js");
+
+    process.env.MAX_QUESTION_LENGTH = "501";
+    assert.throws(() => loadConfig(), /MAX_QUESTION_LENGTH/);
+
+    process.env.MAX_QUESTION_LENGTH = "500";
+    process.env.MAX_ANSWER_LENGTH = "2001";
+    assert.throws(() => loadConfig(), /MAX_ANSWER_LENGTH/);
+
+    process.env.MAX_ANSWER_LENGTH = "2000";
+    process.env.MAX_PENDING_QUESTIONS = "101";
+    assert.throws(() => loadConfig(), /MAX_PENDING_QUESTIONS/);
+
+    process.env.MAX_PENDING_QUESTIONS = "100";
+    assert.equal(loadConfig().maxPendingQuestions, 100);
+  } finally {
+    restoreEnv(snapshot);
+  }
+});
+
+test("loadConfig rejects malformed credentials, model names, and response languages", async () => {
+  const snapshot = { ...process.env };
+  process.env.TWITCH_BOT_USERNAME = "invalid-name";
+  process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
+  process.env.TWITCH_CHANNEL = "channel";
+  process.env.GEMINI_API_KEY = "abc123";
+
+  try {
+    const { loadConfig } = await import("./config.js");
+    assert.throws(() => loadConfig(), /TWITCH_BOT_USERNAME/);
+
+    process.env.TWITCH_BOT_USERNAME = "bot";
+    process.env.TWITCH_OAUTH_TOKEN = "token";
+    assert.throws(() => loadConfig(), /TWITCH_OAUTH_TOKEN/);
+
+    process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
+    process.env.GEMINI_MODEL = "models/gemini";
+    assert.throws(() => loadConfig(), /GEMINI_MODEL/);
+
+    process.env.GEMINI_MODEL = "gemini-2.5-flash";
+    process.env.GEMINI_LANGUAGE = "English;drop";
+    assert.throws(() => loadConfig(), /GEMINI_LANGUAGE/);
+  } finally {
+    restoreEnv(snapshot);
+  }
+});
+
+test("loadConfig rejects retry settings that exceed the question timeout", async () => {
+  const snapshot = { ...process.env };
+  process.env.TWITCH_BOT_USERNAME = "bot";
+  process.env.TWITCH_OAUTH_TOKEN = "oauth:token";
+  process.env.TWITCH_CHANNEL = "channel";
+  process.env.GEMINI_API_KEY = "abc123";
+  process.env.GEMINI_TIMEOUT_MS = "100";
+  process.env.GEMINI_MAX_RETRIES = "2";
+  process.env.GEMINI_RETRY_BASE_DELAY_MS = "10";
+  process.env.QUESTION_TIMEOUT_MS = "500";
+
+  try {
+    const { loadConfig } = await import("./config.js");
+    assert.throws(() => loadConfig(), /QUESTION_TIMEOUT_MS/);
+
+    process.env.QUESTION_TIMEOUT_MS = "700";
+    process.env.GEMINI_MAX_RETRIES = "0";
+    assert.equal(loadConfig().geminiMaxRetries, 0);
   } finally {
     restoreEnv(snapshot);
   }

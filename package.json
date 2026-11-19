@@ -10,7 +10,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
-    "test": "tsx --test src/config.test.ts src/commands/router.test.ts src/commands/help/help.test.ts src/commands/about/about.test.ts src/commands/ai/ai.test.ts src/utils/chat.test.ts src/services/gemini.test.ts",
+    "test": "tsx --test src/config.test.ts src/commands/router.test.ts src/commands/help/help.test.ts src/commands/about/about.test.ts src/commands/ai/ai.test.ts src/commands/language/language.test.ts src/commands/ping/ping.test.ts src/commands/question/question.test.ts src/commands/queue/queue.test.ts src/commands/status/status.test.ts src/utils/blocked-content/blocked-content.test.ts src/utils/is-valid-response-language/is-valid-response-language.test.ts src/utils/normalize-response-language/normalize-response-language.test.ts src/utils/read-utf8-file-with-limit/read-utf8-file-with-limit.test.ts src/utils/remaining-seconds/remaining-seconds.test.ts src/utils/split-for-twitch/split-for-twitch.test.ts src/utils/write-utf8-file-atomically/write-utf8-file-atomically.test.ts src/services/gemini.test.ts src/services/response-language.test.ts src/services/twitch-client-options.test.ts src/services/shutdown.test.ts",
     "test:watch": "tsx --watch --test"
   },
   "dependencies": {

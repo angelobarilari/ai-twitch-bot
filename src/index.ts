@@ -1,13 +1,11 @@
 import tmi from "tmi.js";
 import { createMessageHandler } from "./commands/index.js";
+import { questionCommand } from "./commands/question/index.js";
 import { config } from "./config.js";
+import { createShutdownHandler, registerShutdownHandlers } from "./services/shutdown.js";
+import { createTwitchClientOptions } from "./services/twitch-client-options.js";
 
-const client = new tmi.Client({
-  options: { debug: false },
-  connection: { reconnect: true, secure: true },
-  identity: { username: config.username, password: config.token },
-  channels: [config.channel],
-});
+const client = new tmi.Client(createTwitchClientOptions(config));
 
 /**
  * Logs the successful Twitch connection.
@@ -32,28 +30,15 @@ client.on("disconnected", (reason) => {
 });
 client.on("message", createMessageHandler(client));
 
-let shuttingDown = false;
-
 /**
- * Disconnects the Twitch client once in response to a termination signal.
+ * Disconnects the Twitch client after the current question processing is drained.
  *
  * @param signal Signal that initiated shutdown.
  * @returns A promise that resolves after the disconnect attempt completes.
  */
-const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  console.log(`Received ${signal}; disconnecting from Twitch.`);
-
-  try {
-    await client.disconnect();
-  } catch (error) {
-    console.error("Failed to disconnect cleanly from Twitch:", error);
-    process.exitCode = 1;
-  }
-};
-
-process.once("SIGINT", () => void shutdown("SIGINT"));
-process.once("SIGTERM", () => void shutdown("SIGTERM"));
+const shutdown = createShutdownHandler(client, questionCommand);
+registerShutdownHandlers((signal, listener) => {
+  process.once(signal, listener);
+}, shutdown);
 
 await client.connect();
