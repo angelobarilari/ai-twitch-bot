@@ -30,7 +30,7 @@ type CommandRegistry = ReadonlyMap<string, CommandHandler>;
  * @param message Incoming chat message.
  * @returns Parsed command details, or null if the message is not a named command.
  */
-export function parseCommand(message: string): ParsedCommand | null {
+export const parseCommand = (message: string): ParsedCommand | null => {
   const trimmedMessage = message.trim();
   const [rawCommand, ...args] = trimmedMessage.split(/\s+/);
 
@@ -44,7 +44,7 @@ export function parseCommand(message: string): ParsedCommand | null {
     args,
     text: trimmedMessage.slice(rawCommand.length).trim(),
   };
-}
+};
 
 /**
  * Creates a reply function bound to a Twitch client and channel.
@@ -53,9 +53,12 @@ export function parseCommand(message: string): ParsedCommand | null {
  * @param channel Channel where the response should be sent.
  * @returns A function that sends a message to the bound channel.
  */
-function createReply(client: tmi.Client, channel: string): (response: string) => Promise<unknown> {
+const createReply = (
+  client: tmi.Client,
+  channel: string,
+): ((response: string) => Promise<unknown>) => {
   return (response: string): Promise<unknown> => client.say(channel, response);
-}
+};
 
 /**
  * Dispatches a chat message to its registered command, if any.
@@ -68,14 +71,14 @@ function createReply(client: tmi.Client, channel: string): (response: string) =>
  * @param self Whether the message was sent by this bot.
  * @returns A promise that resolves after command handling completes.
  */
-async function handleMessage(
+const handleMessage = async (
   client: tmi.Client,
   commandRegistry: CommandRegistry,
   channel: string,
   tags: tmi.ChatUserstate,
   message: string,
   self: boolean,
-): Promise<void> {
+): Promise<void> => {
   if (self) return;
 
   const parsedCommand = parseCommand(message);
@@ -95,7 +98,7 @@ async function handleMessage(
   } catch (error) {
     console.error(`Failed to handle Twitch chat command "!${parsedCommand.name}":`, error);
   }
-}
+};
 
 /**
  * Creates a Twitch message handler using the provided command registry.
@@ -104,9 +107,9 @@ async function handleMessage(
  * @param commandRegistry Commands available for dispatch; defaults to built-in commands.
  * @returns A handler suitable for the Twitch message event.
  */
-export function createMessageHandler(
+export const createMessageHandler = (
   client: tmi.Client,
   commandRegistry: CommandRegistry = commands,
-): MessageHandler {
+): MessageHandler => {
   return handleMessage.bind(null, client, commandRegistry);
-}
+};

@@ -347,7 +347,7 @@ test("message handler routes !about to the registered command", async () => {
   ]);
 });
 
-function createContext(username: string, text: string, replies: string[]): CommandContext {
+const createContext = (username: string, text: string, replies: string[]): CommandContext => {
   return {
     channel: "test_channel",
     tags: { username },
@@ -357,7 +357,7 @@ function createContext(username: string, text: string, replies: string[]): Comma
       replies.push(message);
     },
   };
-}
+};
 
 test("questionCommand rejects invalid questions before calling Gemini", async () => {
   let calls = 0;

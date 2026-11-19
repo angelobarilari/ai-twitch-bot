@@ -26,11 +26,11 @@ after(() => {
   rmSync(stateDirectory, { recursive: true, force: true });
 });
 
-function createContext(
+const createContext = (
   args: string[],
   tags: CommandContext["tags"],
   replies: string[],
-): CommandContext {
+): CommandContext => {
   return {
     channel: "test_channel",
     tags,
@@ -40,7 +40,7 @@ function createContext(
       replies.push(message);
     },
   };
-}
+};
 
 test("aiCommand lets moderators toggle the AI and reports its state", async () => {
   const replies: string[] = [];

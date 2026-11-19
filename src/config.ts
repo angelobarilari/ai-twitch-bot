@@ -14,13 +14,13 @@ const requiredEnv = [
  * @returns The non-empty environment variable value.
  * @throws If the variable is missing or contains only whitespace.
  */
-function requireEnv(name: string): string {
+const requireEnv = (name: string): string => {
   const value = process.env[name];
 
   if (!value || !value.trim()) throw new Error(`Required environment variable is missing: ${name}`);
 
   return value.trim();
-}
+};
 
 /**
  * Parses a positive finite numeric setting from an environment variable.
@@ -31,7 +31,11 @@ function requireEnv(name: string): string {
  * @returns The parsed positive finite number.
  * @throws If the value is not a positive finite number.
  */
-function parsePositiveInteger(name: string, value: string | undefined, fallback: number): number {
+const parsePositiveInteger = (
+  name: string,
+  value: string | undefined,
+  fallback: number,
+): number => {
   const rawValue = value?.trim();
   const candidate = rawValue === undefined || rawValue === "" ? String(fallback) : rawValue;
   const parsed = Number(candidate);
@@ -40,7 +44,7 @@ function parsePositiveInteger(name: string, value: string | undefined, fallback:
     throw new Error(`${name} must be a positive finite number.`);
 
   return parsed;
-}
+};
 
 /**
  * Parses a positive safe integer setting from an environment variable.
@@ -51,11 +55,11 @@ function parsePositiveInteger(name: string, value: string | undefined, fallback:
  * @returns The parsed positive safe integer.
  * @throws If the value is not a positive safe integer.
  */
-function parsePositiveSafeInteger(
+const parsePositiveSafeInteger = (
   name: string,
   value: string | undefined,
   fallback: number,
-): number {
+): number => {
   const rawValue = value?.trim();
   const candidate = rawValue === undefined || rawValue === "" ? String(fallback) : rawValue;
   const parsed = Number(candidate);
@@ -64,7 +68,7 @@ function parsePositiveSafeInteger(
     throw new Error(`${name} must be a positive safe integer.`);
 
   return parsed;
-}
+};
 
 /**
  * Loads and validates application settings from the environment.
@@ -72,7 +76,7 @@ function parsePositiveSafeInteger(
  * @returns The normalized Twitch, Gemini, cooldown, and queue configuration.
  * @throws If required variables or setting values are invalid.
  */
-export function loadConfig() {
+export const loadConfig = () => {
   const channel = requireEnv("TWITCH_CHANNEL").replace(/^#/, "").toLowerCase();
 
   if (!/^[a-z0-9_][a-z0-9_]{0,24}$/.test(channel)) {
@@ -103,7 +107,7 @@ export function loadConfig() {
       5,
     ),
   };
-}
+};
 
 for (const name of requiredEnv) requireEnv(name);
 
