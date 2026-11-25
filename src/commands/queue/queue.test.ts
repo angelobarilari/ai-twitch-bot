@@ -30,12 +30,15 @@ test("queueCommand restricts status and clearing to moderators", async () => {
   };
 
   await queueCommand(baseContext);
-  await queueCommand({ ...baseContext, tags: { mod: true } });
+  await queueCommand({
+    ...baseContext,
+    tags: { username: "moderator", "user-id": "42", mod: true, badges: { moderator: "1" } },
+  });
   await queueCommand({
     ...baseContext,
     args: ["clear"],
     text: "clear",
-    tags: { badges: { broadcaster: "1" } },
+    tags: { username: "test_channel", "user-id": "43", badges: { broadcaster: "1" } },
   });
 
   assert.deepEqual(replies, [
@@ -49,7 +52,7 @@ test("queueCommand rejects unsupported moderator actions", async () => {
   const replies: string[] = [];
   const context: CommandContext = {
     channel: "test_channel",
-    tags: { mod: true },
+    tags: { username: "moderator", "user-id": "42", mod: true, badges: { moderator: "1" } },
     args: ["status"],
     text: "status",
     reply: async (message) => {

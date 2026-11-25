@@ -9,7 +9,9 @@ export const isValidResponseLanguage = (language: string): boolean => {
   return (
     normalized.length > 0 &&
     normalized.length <= 40 &&
+    isSafeChatText(normalized) &&
     (normalized.toLowerCase() === "auto" ||
       /^[\p{L}\p{M}][\p{L}\p{M}\p{Zs}().-]*$/u.test(normalized))
   );
 };
+import { isSafeChatText } from "../is-safe-chat-text/index.js";

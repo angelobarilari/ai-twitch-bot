@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import test from "node:test";
 
 const restoreEnv = (snapshot: Record<string, string | undefined>): void => {
@@ -210,4 +210,30 @@ test("loadConfig rejects retry settings that exceed the question timeout", async
   } finally {
     restoreEnv(snapshot);
   }
+});
+
+test("loadConfig validates question access and bounded abuse settings", async () => {
+  const { withTestEnvironment } = await import("./test-support/with-test-environment.js");
+  await withTestEnvironment({}, async () => {
+    const { loadConfig } = await import("./config.js");
+    assert.equal(loadConfig().questionAccess, "everyone");
+    const cases = {
+      QUESTION_ACCESS: "admin",
+      QUESTION_WINDOW_MS: "0",
+      MAX_QUESTIONS_PER_WINDOW: "101",
+      ABUSE_PENALTY_MS: "-1",
+      ABUSE_BAN_MS: "Infinity",
+      ABUSE_MAX_STRIKES: "21",
+    };
+    for (const [name, value] of Object.entries(cases)) {
+      const previous = process.env[name];
+      process.env[name] = value;
+      try {
+        assert.throws(() => loadConfig(), new RegExp(name));
+      } finally {
+        if (previous === undefined) delete process.env[name];
+        else process.env[name] = previous;
+      }
+    }
+  });
 });
