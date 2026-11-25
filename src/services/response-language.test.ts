@@ -93,3 +93,13 @@ test("response language migrates the legacy default file into the data directory
     else process.env.AI_LANGUAGE_FILE = originalLanguageFile;
   }
 });
+
+test("corrupted language errors omit persisted content from their cause", () => {
+  const path = join(testDirectory, "private-corrupt.json");
+  writeFileSync(path, "PRIVATE_PAYLOAD is not JSON");
+  assert.throws(
+    () => createResponseLanguageStore(path),
+    (error: unknown) =>
+      error instanceof Error && error.cause === undefined && /not valid JSON/.test(error.message),
+  );
+});

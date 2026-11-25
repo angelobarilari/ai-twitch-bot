@@ -28,8 +28,9 @@ const readEnabled = (filePath: string): boolean | undefined => {
   let state: unknown;
   try {
     state = JSON.parse(contents);
-  } catch (error) {
-    throw new Error(`Persisted AI state in "${filePath}" is not valid JSON.`, { cause: error });
+  } catch {
+    // JSON parser errors can include the persisted payload in their message.
+    throw new Error(`Persisted AI state in "${filePath}" is not valid JSON.`);
   }
 
   if (

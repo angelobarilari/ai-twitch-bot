@@ -623,9 +623,11 @@ test("questionCommand rejects requests when the pending queue is full", async ()
 
 test("questionCommand asks Gemini to rewrite an overlong answer completely", async () => {
   const prompts: string[] = [];
+  const conciseOptions: Array<boolean | undefined> = [];
   const replies: string[] = [];
-  const command = createQuestionCommand(async (prompt) => {
+  const command = createQuestionCommand(async (prompt, options) => {
     prompts.push(prompt);
+    conciseOptions.push(options?.concise);
     return prompts.length === 1
       ? "a".repeat(config.maxAnswerLength + 100)
       : "A concise, complete answer.";
@@ -636,6 +638,7 @@ test("questionCommand asks Gemini to rewrite an overlong answer completely", asy
   assert.equal(prompts.length, 2);
   assert.equal(prompts[1], "keep it short");
   assert.equal(prompts[0], prompts[1]);
+  assert.deepEqual(conciseOptions, [undefined, true]);
   assert.deepEqual(replies, ["A concise, complete answer."]);
 });
 

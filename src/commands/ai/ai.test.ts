@@ -186,3 +186,18 @@ test("aiCommand reports persistence failures without changing the state", async 
     console.error = previousConsoleError;
   }
 });
+
+test("corrupted AI state errors do not expose persisted content through their cause", () => {
+  const directory = mkdtempSync(join(tmpdir(), "ai-state-privacy-"));
+  try {
+    const path = join(directory, "state.json");
+    writeFileSync(path, "PRIVATE_PAYLOAD is not JSON");
+    assert.throws(
+      () => createAiStateStore(path),
+      (error: unknown) =>
+        error instanceof Error && error.cause === undefined && /not valid JSON/.test(error.message),
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
