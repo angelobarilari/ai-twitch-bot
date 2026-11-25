@@ -32,6 +32,7 @@ test("blocks English and Portuguese injection, credentials, links, and dangerous
 test("permits ordinary educational questions without broad keyword bans", () => {
   for (const value of [
     "What is the capital of Brazil?",
+    "The sky is blue. Light scatters in the atmosphere.",
     "What is suicide prevention?",
     "Explain explosive growth in mathematics",
     "What is an API key?",
