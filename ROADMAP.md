@@ -8,7 +8,7 @@ Cada fase deve ser concluída antes da seguinte. Não avançar para novas funcio
 
 O projeto já possui:
 
-- Fase 1 implementada, validada e integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); próxima entrega: Fase 2;
+- Fase 1 implementada, validada e integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); Fase 2 implementada e validada nesta branch, aguardando revisão e integração;
 - conexão com Twitch usando `tmi.js`;
 - comandos modulares;
 - integração com Gemini;
@@ -105,49 +105,51 @@ O projeto já possui:
 
 **Prioridade:** crítica.
 
+**Status:** implementada e validada nesta branch; aguarda revisão e integração. As regras, os limites e as limitações dos filtros estão em [SECURITY.md](./SECURITY.md). Os escopos mínimos devem ser selecionados ao provisionar o token; esta entrega não altera as credenciais locais existentes.
+
 ## Entregaveis
 
 ### Protecao contra prompt injection
 
-- [ ] Separar instruções de sistema das mensagens dos usuários.
-- [ ] Impedir que o chat substitua instruções internas.
-- [ ] Ignorar pedidos de credenciais, system prompts ou alteração de persona.
-- [ ] Filtrar texto que pareça instrução administrativa.
-- [ ] Validar toda resposta gerada antes do envio.
-- [ ] Adicionar testes para “ignore as instruções anteriores”.
+- [x] Separar instruções de sistema das mensagens dos usuários.
+- [x] Impedir que o chat substitua instruções internas.
+- [x] Ignorar pedidos de credenciais, system prompts ou alteração de persona.
+- [x] Filtrar texto que pareça instrução administrativa.
+- [x] Validar toda resposta gerada antes do envio.
+- [x] Adicionar testes para “ignore as instruções anteriores”.
 
 ### Controle de abuso
 
-- [ ] Implementar limite por usuário em janela de tempo.
-- [ ] Manter cooldown global e por usuário.
-- [ ] Adicionar escalamento progressivo de cooldown.
-- [ ] Bloquear temporariamente usuários que repetem abuso.
-- [ ] Permitir exigir conta conhecida ou papel específico para `!question`.
-- [ ] Separar limites para comandos comuns e comandos administrativos.
+- [x] Implementar limite por usuário em janela de tempo.
+- [x] Manter cooldown global e por usuário.
+- [x] Adicionar escalamento progressivo de cooldown.
+- [x] Bloquear temporariamente usuários que repetem abuso.
+- [x] Permitir exigir conta conhecida ou papel específico para `!question`.
+- [x] Separar limites para comandos comuns e comandos administrativos.
 
 ### Segurança de conteúdo
 
-- [ ] Expandir testes de conteúdo perigoso.
-- [ ] Bloquear links inesperados, dados sensíveis e pedidos maliciosos.
-- [ ] Normalizar Unicode antes das validações.
-- [ ] Validar tamanho em caracteres, não apenas em bytes.
-- [ ] Revisar palavras bloqueadas para evitar falsos positivos excessivos.
+- [x] Expandir testes de conteúdo perigoso.
+- [x] Bloquear links inesperados, dados sensíveis e pedidos maliciosos.
+- [x] Normalizar Unicode antes das validações.
+- [x] Validar tamanho em caracteres, não apenas em bytes.
+- [x] Revisar palavras bloqueadas para evitar falsos positivos excessivos.
 
 ### Segredos e privacidade
 
-- [ ] Garantir que `.env` esteja no `.gitignore`.
-- [ ] Nunca incluir API key, OAuth ou conteúdo privado em logs.
-- [ ] Configurar escopos OAuth mínimos.
-- [ ] Documentar a troca de credenciais.
-- [ ] Adicionar varredura de secrets no CI.
-- [ ] Fazer auditoria de dependências no CI.
+- [x] Garantir que `.env` esteja no `.gitignore`.
+- [x] Nunca incluir API key, OAuth ou conteúdo privado em logs.
+- [x] Configurar escopos OAuth mínimos.
+- [x] Documentar a troca de credenciais.
+- [x] Adicionar varredura de secrets no CI.
+- [x] Fazer auditoria de dependências no CI.
 
 ### Permissões
 
-- [ ] Centralizar autorização em helpers compartilhados.
-- [ ] Cobrir moderador, broadcaster e usuário comum.
-- [ ] Impedir usuários com tags de Twitch inconsistentes de assumir função administrativa.
-- [ ] Registrar alterações administrativas sem registrar conteúdo privado.
+- [x] Centralizar autorização em helpers compartilhados.
+- [x] Cobrir moderador, broadcaster e usuário comum.
+- [x] Impedir usuários com tags de Twitch inconsistentes de assumir função administrativa.
+- [x] Registrar alterações administrativas sem registrar conteúdo privado.
 
 ## Criterios de conclusao
 
@@ -499,6 +501,6 @@ Exemplos futuros de ferramentas:
 
 # Próxima entrega recomendada
 
-Iniciar a Fase 2, priorizando a proteção contra prompt injection e o controle de abuso. A Fase 1 foi integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); os itens das fases seguintes permanecem pendentes até sua implementação e validação.
+Revisar e integrar a Fase 2 antes de iniciar a Fase 3. A entrega inclui filtros de entrada e saída, limites contra abuso, permissões consistentes, logs sem conteúdo privado, auditoria de dependências e varredura de secrets no CI. Consultar [SECURITY.md](./SECURITY.md) para operação e limitações. As fases seguintes permanecem pendentes.
 
 As orientações de operação e recuperação de persistência estão no [README.md](./README.md#operating-and-troubleshooting).

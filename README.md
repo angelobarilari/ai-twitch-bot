@@ -18,7 +18,9 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 - Bounded pending-question queue with limit validation via `MAX_PENDING_QUESTIONS`
 - Automatic Twitch reconnection and graceful shutdown on termination signals
 - Privacy-conscious logs that hide the actual question, response, and API key
-- Built-in cooldowns, unsafe-content filters, and response length safeguards
+- Unicode normalization, injection and sensitive-content filters, and response length safeguards
+- Per-user attempt windows, progressive abuse penalties, temporary bans, and optional question access policies
+- Separate ordinary and administrative command budgets; dependency and secret scanning in CI
 - Runtime validation for environment variables and numeric settings
 - TypeScript codebase with automated validation tests
 
@@ -26,7 +28,7 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 
 The bot supports a complete Twitch chat flow: viewers can ask questions, check whether AI responses are enabled, and set the channel-wide response language; moderators can control the AI and inspect or clear the queue. Failed Gemini requests and Twitch replies are logged and handled so subsequent queued questions can continue. Gemini request logs include outcome, duration, and HTTP status without exposing sensitive request content.
 
-Phase 1 stability work was merged in [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11). See [ROADMAP.md](./ROADMAP.md) for completed deliverables and the next phase, input and resource protection.
+Phase 1 stability work was merged in [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11). Phase 2 input and resource protection is implemented on this branch and awaits review and integration. See [ROADMAP.md](./ROADMAP.md) for delivery status and [SECURITY.md](./SECURITY.md) for trust boundaries, abuse limits, and credential operations.
 
 ## Tech Stack
 
@@ -54,6 +56,8 @@ Phase 1 stability work was merged in [PR #11](https://github.com/angelobarilari/
 │   ├── types/
 │   │   └── commands.ts
 │   ├── services/
+│   │   ├── abuse-limiter.ts
+│   │   ├── abuse-limiter.test.ts
 │   │   ├── gemini.ts
 │   │   ├── gemini.test.ts
 │   │   ├── response-language.ts
@@ -74,11 +78,14 @@ Phase 1 stability work was merged in [PR #11](https://github.com/angelobarilari/
 ├── .env.example
 ├── .gitignore
 ├── README.md
+├── ROADMAP.md
+├── SECURITY.md
+├── PROJECT_CONVENTIONS.md
 ├── package.json
 ├── package-lock.json
 ├── tsconfig.json
 ├── .github/
-└── .vscode/
+└── .husky/
 ```
 
 The command folders are `about`, `ai`, `help`, `language`, `ping`, `question`, `queue`, and `status`. Each exposes its handler through `index.ts` and keeps focused tests beside it. Utilities follow the same pattern in individual kebab-case directories. `commands/index.ts` re-exports public handlers and command types; `commands/router.ts` handles parsing and dispatch, and shared command state and permission helpers live in `commands/shared/`.
@@ -86,7 +93,7 @@ The command folders are `about`, `ai`, `help`, `language`, `ping`, `question`, `
 ## Requirements
 
 - Twitch bot account
-- Twitch OAuth token
+- Twitch user OAuth token for the bot account with only `chat:read` and `chat:edit` IRC scopes
 - Gemini API key from Google AI Studio
 - Node.js 20 or newer
 
@@ -136,6 +143,12 @@ USER_COOLDOWN_SECONDS=30
 MAX_QUESTION_LENGTH=300
 MAX_ANSWER_LENGTH=420
 MAX_PENDING_QUESTIONS=5
+QUESTION_ACCESS=everyone
+QUESTION_WINDOW_MS=60000
+MAX_QUESTIONS_PER_WINDOW=5
+ABUSE_PENALTY_MS=1000
+ABUSE_BAN_MS=300000
+ABUSE_MAX_STRIKES=3
 ```
 
 Notes:
@@ -153,7 +166,10 @@ Notes:
 - Twitch usernames and OAuth tokens, Gemini model names, and response languages are validated before the client starts.
 - Cooldowns must convert to positive safe millisecond durations. Message lengths, queue limits, and timeout values must be positive safe integers. `GEMINI_MAX_RETRIES` accepts 0 through 5, and `GEMINI_RETRY_BASE_DELAY_MS` accepts 0 through 60000.
 - `MAX_QUESTION_LENGTH` is limited to 500 characters, `MAX_ANSWER_LENGTH` to 2,000 characters, and `MAX_PENDING_QUESTIONS` to 100 accepted questions (active and waiting); defaults are `300`, `420`, and `5`, respectively.
-- Keep `.env` out of version control and never commit real secrets.
+- `QUESTION_ACCESS` accepts `everyone`, `known`, `subscriber`, `moderator`, or `broadcaster`. The default preserves viewer access; `known` requires a Twitch username and numeric user ID.
+- `QUESTION_WINDOW_MS` and `MAX_QUESTIONS_PER_WINDOW` default to 5 question attempts per user per 60 seconds, including rejected requests. Unsafe questions and user cooldown violations trigger progressive penalties from `ABUSE_PENALTY_MS`, with a temporary `ABUSE_BAN_MS` ban at `ABUSE_MAX_STRIKES`.
+- New duration settings must be positive safe integers no greater than 2,147,483,647 ms; the per-window attempt limit is at most 100 and the strike threshold at most 20. See [abuse limits](./SECURITY.md#abuse-limits) for expiration and command budgets.
+- Keep `.env` out of version control and never commit real secrets. See [credential rotation](./SECURITY.md#rotate-credentials) for replacement steps.
 
 ## Commands
 
@@ -209,11 +225,11 @@ Example:
 
 ## Command Parsing and Dispatch
 
-The bot trims each incoming message and treats its first whitespace-separated token as a command when it begins with `!`. Command names are matched without regard to case; the remaining text is passed to the command as its arguments. Messages that are not commands, contain only the `!` prefix, use an unknown command name, or were authored by the bot itself are ignored without a reply.
+The bot normalizes incoming Unicode with NFKC, rejects malformed Unicode and hidden controls, trims whitespace, and treats the first whitespace-separated token as a command when it begins with `!`. Command names are matched without regard to case; the remaining text is passed to the command as its arguments. Messages that are not commands, contain only the `!` prefix, use an unknown command name, or were authored by the bot itself are ignored without a reply. Excess commands are silently dropped according to the separate ordinary and administrative budgets documented in [SECURITY.md](./SECURITY.md#abuse-limits).
 
 ## Safety and Usage Notes
 
-- Local safety checks and Gemini safety settings are used, but they are not a substitute for human moderation.
+- Local safety checks and Gemini safety settings are used, but they are not a substitute for human moderation. Questions and generated answers are checked for common injection patterns, administrative commands, unexpected links, and sensitive data. Heuristic filters can miss attacks or reject legitimate text; see [security details](./SECURITY.md).
 - For public channels, keep cooldowns strict and consider role-based access controls.
 - Gemini quota is external and may be limited or interrupted depending on provider limits.
 - Do not treat the free tier as unlimited access.
