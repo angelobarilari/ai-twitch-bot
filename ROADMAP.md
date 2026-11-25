@@ -8,7 +8,7 @@ Cada fase deve ser concluída antes da seguinte. Não avançar para novas funcio
 
 O projeto já possui:
 
-- Fase 1 implementada e validada localmente; aguarda revisão e integração antes do início da Fase 2;
+- Fase 1 implementada, validada e integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); próxima entrega: Fase 2;
 - conexão com Twitch usando `tmi.js`;
 - comandos modulares;
 - integração com Gemini;
@@ -499,4 +499,6 @@ Exemplos futuros de ferramentas:
 
 # Próxima entrega recomendada
 
-Concluir a revisão e integrar a Fase 1. Iniciar a Fase 2 somente depois da integração, priorizando a proteção contra prompt injection e o controle de abuso.
+Iniciar a Fase 2, priorizando a proteção contra prompt injection e o controle de abuso. A Fase 1 foi integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); os itens das fases seguintes permanecem pendentes até sua implementação e validação.
+
+As orientações de operação e recuperação de persistência estão no [README.md](./README.md#operating-and-troubleshooting).

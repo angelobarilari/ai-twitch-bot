@@ -1,4 +1,4 @@
-﻿# AI Twitch Bot
+# AI Twitch Bot
 
 A small, modular Twitch chat bot that answers questions in chat using the Gemini API. The project keeps Twitch client setup, command handling, config validation, and AI integration separated so it can grow without becoming a monolithic entry point.
 
@@ -25,6 +25,8 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 ## Current Implementation Status
 
 The bot supports a complete Twitch chat flow: viewers can ask questions, check whether AI responses are enabled, and set the channel-wide response language; moderators can control the AI and inspect or clear the queue. Failed Gemini requests and Twitch replies are logged and handled so subsequent queued questions can continue. Gemini request logs include outcome, duration, and HTTP status without exposing sensitive request content.
+
+Phase 1 stability work was merged in [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11). See [ROADMAP.md](./ROADMAP.md) for completed deliverables and the next phase, input and resource protection.
 
 ## Tech Stack
 
@@ -215,6 +217,18 @@ The bot trims each incoming message and treats its first whitespace-separated to
 - For public channels, keep cooldowns strict and consider role-based access controls.
 - Gemini quota is external and may be limited or interrupted depending on provider limits.
 - Do not treat the free tier as unlimited access.
+
+## Operating and Troubleshooting
+
+Run the bot from the project directory so relative state paths resolve consistently. Preserve the configured state and language files across restarts. The question queue is in memory and is not restored after a restart.
+
+- **Invalid startup configuration:** compare the validation error with `.env.example`. Increasing Gemini retries may require increasing `QUESTION_TIMEOUT_MS` to accommodate the retry policy.
+- **State or language cannot be loaded:** stop the bot and check the configured path, permissions, JSON validity, and 4 KiB size limit. Restore a known-good backup when available. Deliberately removing a file resets that setting to its documented startup default; preserve a copy before recovery.
+- **A setting cannot be saved:** check directory write permissions and available disk space. The previous setting stays active in memory; resolve the storage error before retrying the command.
+- **Questions time out or expire:** distinguish the Gemini request timeout, active-question timeout, and queue waiting timeout. Inspect sanitized Gemini outcome, duration, and HTTP status logs. Authentication and other non-retryable client failures require correcting the underlying problem rather than increasing retries.
+- **Twitch disconnects:** check connection and reconnection messages. Automatic reconnection uses capped exponential backoff.
+
+For a normal shutdown, send `SIGINT` (Ctrl+C where supported) or `SIGTERM`. The bot stops accepting questions, removes waiting questions, waits for active processing within its timeout, and disconnects from Twitch. Let shutdown finish before restarting or backing up state files.
 
 ## Testing
 
