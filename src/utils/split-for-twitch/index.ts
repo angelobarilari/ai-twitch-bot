@@ -13,15 +13,15 @@ export const splitForTwitch = (message: string, maxLength: number): string[] => 
 
   const normalized = message.replace(/\s+/g, " ").trim();
   const chunks: string[] = [];
-  let remaining = normalized;
+  let remaining = Array.from(normalized);
 
   while (remaining.length > maxLength) {
     let splitAt = remaining.lastIndexOf(" ", maxLength);
     if (splitAt < Math.floor(maxLength * 0.5)) splitAt = maxLength;
-    chunks.push(remaining.slice(0, splitAt).trim());
-    remaining = remaining.slice(splitAt).trim();
+    chunks.push(remaining.slice(0, splitAt).join("").trim());
+    remaining = Array.from(remaining.slice(splitAt).join("").trim());
   }
 
-  if (remaining) chunks.push(remaining);
+  if (remaining.length) chunks.push(remaining.join(""));
   return chunks;
 };

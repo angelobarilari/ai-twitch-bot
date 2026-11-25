@@ -27,7 +27,7 @@ export const createShutdownHandler = (
       console.log("Question processing stopped; disconnecting from Twitch.");
       await client.disconnect();
     } catch (error) {
-      console.error("Failed to disconnect cleanly from Twitch:", error);
+      console.error("Failed to disconnect cleanly from Twitch.");
       process.exitCode = 1;
     }
   };

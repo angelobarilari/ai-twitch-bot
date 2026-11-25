@@ -8,6 +8,9 @@ import { queueCommand } from "./queue/index.js";
 import { questionCommand } from "./question/index.js";
 import { statusCommand } from "./status/index.js";
 import { languageCommand } from "./language/index.js";
+import { normalizeChatText } from "../utils/normalize-chat-text/index.js";
+import { createAbuseLimiter } from "../services/abuse-limiter.js";
+import { isModerator } from "./shared/permissions.js";
 
 export type { MessageHandler, ParsedCommand } from "../types/commands.js";
 
@@ -31,7 +34,8 @@ type CommandRegistry = ReadonlyMap<string, CommandHandler>;
  * @returns Parsed command details, or null if the message is not a named command.
  */
 export const parseCommand = (message: string): ParsedCommand | null => {
-  const trimmedMessage = message.trim();
+  const trimmedMessage = normalizeChatText(message);
+  if (!trimmedMessage) return null;
   const [rawCommand, ...args] = trimmedMessage.split(/\s+/);
 
   if (!rawCommand?.startsWith("!")) return null;
@@ -96,7 +100,7 @@ const handleMessage = async (
       reply: createReply(client, channel),
     });
   } catch (error) {
-    console.error(`Failed to handle Twitch chat command "!${parsedCommand.name}":`, error);
+    console.error("Failed to handle Twitch chat command.");
   }
 };
 
@@ -105,11 +109,46 @@ const handleMessage = async (
  *
  * @param client Twitch client used for replies.
  * @param commandRegistry Commands available for dispatch; defaults to built-in commands.
+ * @param now Clock used by independent ordinary and administrative command limits.
  * @returns A handler suitable for the Twitch message event.
  */
 export const createMessageHandler = (
   client: tmi.Client,
   commandRegistry: CommandRegistry = commands,
+  now: () => number = Date.now,
 ): MessageHandler => {
-  return handleMessage.bind(null, client, commandRegistry);
+  const policy = {
+    windowMs: 10_000,
+    maxAttempts: 5,
+    penaltyMs: 1_000,
+    banMs: 60_000,
+    maxStrikes: 3,
+    maxUsers: 10_000,
+  };
+  const ordinary = createAbuseLimiter(policy, now);
+  const administrative = createAbuseLimiter({ ...policy, maxAttempts: 10 }, now);
+  let windowStarted = now();
+  let ordinaryCount = 0;
+  let administrativeCount = 0;
+  return async (channel, tags, message, self): Promise<void> => {
+    if (self || message.length > 2_000) return;
+    const parsed = parseCommand(message);
+    if (!parsed || !commandRegistry.has(parsed.name)) return;
+    const admin = (parsed.name === "ai" || parsed.name === "queue") && isModerator(tags, channel);
+    if (now() >= windowStarted + 10_000) {
+      windowStarted = now();
+      ordinaryCount = 0;
+      administrativeCount = 0;
+    }
+    if (admin ? administrativeCount >= 20 : ordinaryCount >= 20) return;
+    if (
+      !(admin ? administrative : ordinary).consume(
+        `${channel}:${tags["user-id"] ?? tags.username?.toLowerCase() ?? "anonymous"}`,
+      )
+    )
+      return;
+    if (admin) administrativeCount += 1;
+    else ordinaryCount += 1;
+    await handleMessage(client, commandRegistry, channel, tags, message, false);
+  };
 };

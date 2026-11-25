@@ -25,8 +25,8 @@ client.on("connecting", (address, port) => {
 client.on("reconnect", () => {
   console.warn("Twitch connection lost; reconnecting.");
 });
-client.on("disconnected", (reason) => {
-  console.warn(`Disconnected from Twitch: ${reason}`);
+client.on("disconnected", () => {
+  console.warn("Disconnected from Twitch.");
 });
 client.on("message", createMessageHandler(client));
 
@@ -41,4 +41,9 @@ registerShutdownHandlers((signal, listener) => {
   process.once(signal, listener);
 }, shutdown);
 
-await client.connect();
+try {
+  await client.connect();
+} catch {
+  console.error("Failed to connect to Twitch.");
+  process.exitCode = 1;
+}

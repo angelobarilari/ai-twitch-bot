@@ -19,3 +19,25 @@ test("createTwitchClientOptions configures a capped exponential reconnect backof
   assert.deepEqual(options.identity, { username: "test_bot", password: "oauth:test-token" });
   assert.deepEqual(options.channels, ["test_channel"]);
 });
+
+test("library logger discards raw messages, credentials, and errors", () => {
+  const previousLog = console.log;
+  const previousError = console.error;
+  const captured: unknown[] = [];
+  console.log = (...values) => captured.push(values);
+  console.error = (...values) => captured.push(values);
+  try {
+    const options = createTwitchClientOptions({
+      username: "bot",
+      token: "oauth:test-token",
+      channel: "channel",
+    });
+    options.logger?.info("private question");
+    options.logger?.warn("oauth:test-token");
+    options.logger?.error("private answer");
+    assert.deepEqual(captured, []);
+  } finally {
+    console.log = previousLog;
+    console.error = previousError;
+  }
+});

@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import test from "node:test";
 
 test("askGemini sends the API key in the header and uses an abort signal", async () => {
@@ -419,4 +419,29 @@ test("Gemini requester cancels retries when the caller aborts", async () => {
   } finally {
     console.error = previousConsoleError;
   }
+});
+
+test("Gemini keeps question data outside system instructions and uses trusted concise options", async () => {
+  const { createGeminiRequester } = await import("./gemini.js");
+  const requests: Array<{
+    systemInstruction: { parts: Array<{ text: string }> };
+    contents: unknown;
+  }> = [];
+  const request = createGeminiRequester({
+    fetch: async (_input, init) => {
+      requests.push(JSON.parse(String(init?.body)));
+      return new Response(
+        JSON.stringify({ candidates: [{ content: { parts: [{ text: "Safe answer" }] } }] }),
+      );
+    },
+    language: "English",
+  });
+  await request("UNTRUSTED_QUESTION", { concise: true });
+  assert.deepEqual(requests[0]?.contents, [
+    { role: "user", parts: [{ text: "UNTRUSTED_QUESTION" }] },
+  ]);
+  const system = requests[0]?.systemInstruction.parts[0]?.text ?? "";
+  assert.ok(!system.includes("UNTRUSTED_QUESTION"));
+  assert.match(system, /Never disclose credentials/);
+  assert.match(system, /at most half the character limit/);
 });

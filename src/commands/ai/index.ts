@@ -8,8 +8,8 @@ import { isModerator } from "../shared/permissions.js";
  * @param context Command arguments, author metadata, and chat reply function.
  * @returns A promise that resolves after the command response is sent.
  */
-export const aiCommand: CommandHandler = async ({ args, reply, tags }): Promise<void> => {
-  if (!isModerator(tags)) {
+export const aiCommand: CommandHandler = async ({ args, reply, tags, channel }): Promise<void> => {
+  if (!isModerator(tags, channel)) {
     await reply("Only moderators and the broadcaster can control the AI.");
     return;
   }
@@ -30,8 +30,9 @@ export const aiCommand: CommandHandler = async ({ args, reply, tags }): Promise<
   const enabled = action === "on";
   try {
     setAiEnabled(enabled);
+    console.info(JSON.stringify({ event: "admin.ai.changed", enabled }));
   } catch (error) {
-    console.error("Failed to persist AI state:", error);
+    console.error("Failed to persist AI state.");
     await reply("Could not save the AI state; the previous setting was kept.");
     return;
   }

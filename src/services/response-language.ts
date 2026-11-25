@@ -32,10 +32,9 @@ const readLanguage = (filePath: string): string | undefined => {
   let state: unknown;
   try {
     state = JSON.parse(contents);
-  } catch (error) {
-    throw new Error(`Response language state in "${filePath}" is not valid JSON.`, {
-      cause: error,
-    });
+  } catch {
+    // Keep malformed persisted content out of startup error output.
+    throw new Error(`Response language state in "${filePath}" is not valid JSON.`);
   }
 
   if (

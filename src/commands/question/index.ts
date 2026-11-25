@@ -1,11 +1,14 @@
 import { config } from "../../config.js";
 import { askGemini } from "../../services/gemini.js";
 import type { GeminiRequester } from "../../services/gemini.js";
-import { blockedContent } from "../../utils/blocked-content/index.js";
+import { normalizeChatText } from "../../utils/normalize-chat-text/index.js";
+import { isSafeChatText } from "../../utils/is-safe-chat-text/index.js";
 import { remainingSeconds } from "../../utils/remaining-seconds/index.js";
 import { splitForTwitch } from "../../utils/split-for-twitch/index.js";
 import type { CommandHandler } from "../../types/commands.js";
 import { isAiEnabled } from "../shared/ai-state.js";
+import { canAskQuestion } from "../shared/permissions.js";
+import { createAbuseLimiter } from "../../services/abuse-limiter.js";
 
 export type QuestionQueueStatus = {
   active: boolean;
@@ -73,6 +76,17 @@ export const createQuestionCommand = (
     }
   }
 
+  const abuseLimiter = createAbuseLimiter(
+    {
+      windowMs: config.questionWindowMs,
+      maxAttempts: config.maxQuestionsPerWindow,
+      penaltyMs: config.abusePenaltyMs,
+      banMs: config.abuseBanMs,
+      maxStrikes: config.abuseMaxStrikes,
+      maxUsers: 10_000,
+    },
+    now,
+  );
   const lastCommandAt = new Map<string, number>();
   let lastGlobalCommandAt = 0;
   let pendingQuestionCount = 0;
@@ -113,7 +127,7 @@ export const createQuestionCommand = (
     void Promise.resolve()
       .then(() => reply(message))
       .catch((error: unknown) => {
-        console.error("Failed to send a question queue notification:", error);
+        console.error("Failed to send a question queue notification:");
       });
   };
 
@@ -159,6 +173,7 @@ export const createQuestionCommand = (
    *
    * @param question Question text to send to Gemini.
    * @param reply Reply function for the originating chat channel.
+   * @param signal Cancellation signal for the active question deadline.
    * @returns A promise that resolves after the answer or an error message is sent.
    */
   const answerQuestion = async (
@@ -167,32 +182,24 @@ export const createQuestionCommand = (
     signal: AbortSignal,
   ): Promise<void> => {
     try {
-      let answer = await askQuestion(question, { signal });
+      let answer = normalizeChatText((await askQuestion(question, { signal })) ?? "");
       if (signal.aborted) return;
-      if (!answer || blockedContent.test(answer)) {
+      if (!answer || !isSafeChatText(answer, [config.apiKey, config.token])) {
         await reply("The AI could not generate a safe answer for that question.");
         return;
       }
 
-      if (answer.length > config.maxAnswerLength) {
-        answer = await askQuestion(
-          [
-            `Rewrite the draft as a complete, self-contained answer to the original question in no more than ${config.maxAnswerLength} characters.`,
-            "Preserve the essential context, use complete sentences, and do not end with an ellipsis or an unfinished thought.",
-            `Original question: ${question}`,
-            `Draft answer: ${answer}`,
-          ].join("\n"),
-          { signal },
-        );
+      if (Array.from(answer).length > config.maxAnswerLength) {
+        answer = normalizeChatText((await askQuestion(question, { signal, concise: true })) ?? "");
         if (signal.aborted) return;
       }
 
-      if (!answer || blockedContent.test(answer)) {
+      if (!answer || !isSafeChatText(answer, [config.apiKey, config.token])) {
         await reply("The AI could not generate a safe answer for that question.");
         return;
       }
 
-      if (answer.length > config.maxAnswerLength) {
+      if (Array.from(answer).length > config.maxAnswerLength) {
         await reply(
           "I could not provide a complete answer within the chat limit. Please try a shorter question.",
         );
@@ -205,7 +212,7 @@ export const createQuestionCommand = (
       }
     } catch (error) {
       if (signal.aborted) return;
-      console.error("Error while querying the AI:", error);
+      console.error("Error while querying the AI:");
       await reply("I could not query the AI right now. Please try again later.");
     }
   };
@@ -270,9 +277,19 @@ export const createQuestionCommand = (
    */
   const command: CommandHandler = async (context): Promise<void> => {
     const { args, reply, tags, text } = context;
-    const username = tags.username ?? "anonymous";
-    const question = text || args.join(" ");
+    const username = tags.username?.toLowerCase() ?? "anonymous";
+    const userKey = tags["user-id"] ?? username;
+    const question = normalizeChatText(text || args.join(" "));
     const currentTime = now();
+
+    if (!canAskQuestion(tags, context.channel, config.questionAccess)) {
+      await reply("Your account does not meet the channel's question access requirements.");
+      return;
+    }
+    if (!abuseLimiter.consume(userKey)) {
+      await reply("Too many attempts. Please try again later.");
+      return;
+    }
 
     if (!acceptingQuestions) {
       await reply("The bot is shutting down. Please try again later.");
@@ -284,24 +301,31 @@ export const createQuestionCommand = (
       return;
     }
 
-    if (!question) {
+    if (question === "") {
       await reply("Usage: !question your question");
       return;
     }
 
-    if (question.length > config.maxQuestionLength) {
-      await reply(`Your question must be at most ${config.maxQuestionLength} characters long.`);
-      return;
-    }
-
-    if (blockedContent.test(question)) {
+    if (question === null) {
       await reply("I cannot process that type of question.");
       return;
     }
 
-    const userAvailableAt = (lastCommandAt.get(username) ?? 0) + config.userCooldownMs;
+    if (Array.from(question).length > config.maxQuestionLength) {
+      await reply(`Your question must be at most ${config.maxQuestionLength} characters long.`);
+      return;
+    }
+
+    if (!isSafeChatText(question, [config.apiKey, config.token])) {
+      abuseLimiter.penalize(userKey);
+      await reply("I cannot process that type of question.");
+      return;
+    }
+
+    const userAvailableAt = (lastCommandAt.get(userKey) ?? -Infinity) + config.userCooldownMs;
     const globalAvailableAt = lastGlobalCommandAt + config.commandCooldownMs;
     if (currentTime < userAvailableAt) {
+      abuseLimiter.penalize(userKey);
       await reply(`@${username}, please wait ${remainingSeconds(userAvailableAt, currentTime)}s.`);
       return;
     }
@@ -318,7 +342,14 @@ export const createQuestionCommand = (
       return;
     }
 
-    lastCommandAt.set(username, currentTime);
+    for (const [key, time] of lastCommandAt) {
+      if (currentTime >= time + config.userCooldownMs) lastCommandAt.delete(key);
+    }
+    if (lastCommandAt.size >= 10_000) {
+      await reply("Too many attempts. Please try again later.");
+      return;
+    }
+    lastCommandAt.set(userKey, currentTime);
     lastGlobalCommandAt = currentTime;
     pendingQuestionCount += 1;
     let queuedPosition: number | null = null;
@@ -346,7 +377,6 @@ export const createQuestionCommand = (
           if (!outcome.succeeded) {
             console.error(
               "Failed to process a queued question after its queue notification failed:",
-              outcome.error,
             );
           }
         });

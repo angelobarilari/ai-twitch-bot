@@ -29,6 +29,12 @@ export type AppConfig = {
   maxQuestionLength: number;
   maxAnswerLength: number;
   maxPendingQuestions: number;
+  questionAccess: "everyone" | "known" | "subscriber" | "moderator" | "broadcaster";
+  questionWindowMs: number;
+  maxQuestionsPerWindow: number;
+  abusePenaltyMs: number;
+  abuseBanMs: number;
+  abuseMaxStrikes: number;
 };
 
 /**
@@ -149,6 +155,12 @@ const parseCooldownMilliseconds = (
  * @throws If required variables or setting values are invalid.
  */
 export const loadConfig = (): AppConfig => {
+  const questionAccess = process.env.QUESTION_ACCESS?.trim() || "everyone";
+  if (!["everyone", "known", "subscriber", "moderator", "broadcaster"].includes(questionAccess)) {
+    throw new Error(
+      "QUESTION_ACCESS must be everyone, known, subscriber, moderator, or broadcaster.",
+    );
+  }
   const username = requireEnv("TWITCH_BOT_USERNAME");
   if (!/^[a-z0-9_]{1,25}$/i.test(username)) {
     throw new Error("TWITCH_BOT_USERNAME must be a valid Twitch username.");
@@ -232,6 +244,37 @@ export const loadConfig = (): AppConfig => {
   }
 
   return {
+    questionAccess: questionAccess as AppConfig["questionAccess"],
+    questionWindowMs: parsePositiveSafeInteger(
+      "QUESTION_WINDOW_MS",
+      process.env.QUESTION_WINDOW_MS,
+      60_000,
+      MAX_TIMER_DELAY_MS,
+    ),
+    maxQuestionsPerWindow: parsePositiveSafeInteger(
+      "MAX_QUESTIONS_PER_WINDOW",
+      process.env.MAX_QUESTIONS_PER_WINDOW,
+      5,
+      100,
+    ),
+    abusePenaltyMs: parsePositiveSafeInteger(
+      "ABUSE_PENALTY_MS",
+      process.env.ABUSE_PENALTY_MS,
+      1_000,
+      MAX_TIMER_DELAY_MS,
+    ),
+    abuseBanMs: parsePositiveSafeInteger(
+      "ABUSE_BAN_MS",
+      process.env.ABUSE_BAN_MS,
+      300_000,
+      MAX_TIMER_DELAY_MS,
+    ),
+    abuseMaxStrikes: parsePositiveSafeInteger(
+      "ABUSE_MAX_STRIKES",
+      process.env.ABUSE_MAX_STRIKES,
+      3,
+      20,
+    ),
     username,
     token,
     channel,

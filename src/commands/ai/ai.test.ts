@@ -46,10 +46,28 @@ test("aiCommand lets moderators toggle the AI and reports its state", async () =
   const replies: string[] = [];
   setAiEnabled(true);
 
-  await aiCommand(createContext(["off"], { mod: true }, replies));
+  await aiCommand(
+    createContext(
+      ["off"],
+      { username: "moderator", "user-id": "42", mod: true, badges: { moderator: "1" } },
+      replies,
+    ),
+  );
   assert.equal(isAiEnabled(), false);
-  await aiCommand(createContext([], { mod: true }, replies));
-  await aiCommand(createContext(["on"], { badges: { broadcaster: "1" } }, replies));
+  await aiCommand(
+    createContext(
+      [],
+      { username: "moderator", "user-id": "42", mod: true, badges: { moderator: "1" } },
+      replies,
+    ),
+  );
+  await aiCommand(
+    createContext(
+      ["on"],
+      { username: "test_channel", "user-id": "43", badges: { broadcaster: "1" } },
+      replies,
+    ),
+  );
   assert.equal(isAiEnabled(), true);
 
   assert.deepEqual(replies, [
@@ -64,8 +82,20 @@ test("aiCommand rejects viewers and invalid actions", async () => {
   setAiEnabled(true);
 
   await aiCommand(createContext(["off"], {}, replies));
-  await aiCommand(createContext(["toggle"], { mod: true }, replies));
-  await aiCommand(createContext(["off", "on"], { mod: true }, replies));
+  await aiCommand(
+    createContext(
+      ["toggle"],
+      { username: "moderator", "user-id": "42", mod: true, badges: { moderator: "1" } },
+      replies,
+    ),
+  );
+  await aiCommand(
+    createContext(
+      ["off", "on"],
+      { username: "moderator", "user-id": "42", mod: true, badges: { moderator: "1" } },
+      replies,
+    ),
+  );
 
   assert.equal(isAiEnabled(), true);
   assert.deepEqual(replies, [
@@ -142,11 +172,32 @@ test("aiCommand reports persistence failures without changing the state", async 
   };
 
   try {
-    await aiCommand(createContext(["off"], { mod: true }, replies));
+    await aiCommand(
+      createContext(
+        ["off"],
+        { username: "moderator", "user-id": "42", mod: true, badges: { moderator: "1" } },
+        replies,
+      ),
+    );
     assert.equal(isAiEnabled(), true);
     assert.deepEqual(replies, ["Could not save the AI state; the previous setting was kept."]);
     assert.equal(loggedErrors.length, 1);
   } finally {
     console.error = previousConsoleError;
+  }
+});
+
+test("corrupted AI state errors do not expose persisted content through their cause", () => {
+  const directory = mkdtempSync(join(tmpdir(), "ai-state-privacy-"));
+  try {
+    const path = join(directory, "state.json");
+    writeFileSync(path, "PRIVATE_PAYLOAD is not JSON");
+    assert.throws(
+      () => createAiStateStore(path),
+      (error: unknown) =>
+        error instanceof Error && error.cause === undefined && /not valid JSON/.test(error.message),
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 });
