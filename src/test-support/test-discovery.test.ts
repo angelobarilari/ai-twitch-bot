@@ -89,7 +89,11 @@ test("watch rediscovers newly added nested tests", { timeout: 15_000 }, async ()
       join(root, "src/nested/new.test.ts"),
       'import { test } from "node:test"; test("newly discovered fixture", () => {});',
     );
-    for (let count = 0; count < 100 && !output.includes("newly discovered fixture"); count += 1)
+    for (
+      let count = 0;
+      count < 100 && !/ok \d+ - newly discovered fixture/.test(output);
+      count += 1
+    )
       await new Promise((resolve) => setTimeout(resolve, 50));
     assert.match(output, /ok \d+ - newly discovered fixture/);
   } finally {
