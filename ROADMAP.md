@@ -8,7 +8,7 @@ Cada fase deve ser concluída antes da seguinte. Não avançar para novas funcio
 
 O projeto já possui:
 
-- Fase 1 implementada, validada e integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); Fase 2 implementada e validada nesta branch, aguardando revisão e integração;
+- Fase 1 integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); Fase 2 integrada na [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13); Fase 3 implementada e validada localmente nesta branch, aguardando revisão e integração;
 - conexão com Twitch usando `tmi.js`;
 - comandos modulares;
 - integração com Gemini;
@@ -105,7 +105,7 @@ O projeto já possui:
 
 **Prioridade:** crítica.
 
-**Status:** implementada e validada nesta branch; aguarda revisão e integração. As regras, os limites e as limitações dos filtros estão em [SECURITY.md](./SECURITY.md). Os escopos mínimos devem ser selecionados ao provisionar o token; esta entrega não altera as credenciais locais existentes.
+**Status:** implementada, validada e integrada na [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13). As regras, os limites e as limitações dos filtros estão em [SECURITY.md](./SECURITY.md). Os escopos mínimos devem ser selecionados ao provisionar o token; esta entrega não altera as credenciais locais existentes.
 
 ## Entregaveis
 
@@ -179,7 +179,7 @@ O projeto já possui:
 
 **Prioridade:** alta.
 
-**Status:** implementada e validada localmente em `feature/phase-3-observability`, baseada na Fase 2 ainda não integrada. A validação remota Windows/Linux depende da execução do CI.
+**Status:** implementada e validada localmente em `feature/phase-3-observability`, atualizada com `main` após a integração da Fase 2. A validação remota Windows/Linux depende da execução do CI.
 
 ## Entregáveis
 
@@ -513,6 +513,6 @@ Exemplos futuros de ferramentas:
 
 # Próxima entrega recomendada
 
-Revisar e integrar a Fase 2 e, em seguida, revisar a Fase 3 implementada nesta branch. A Fase 3 inclui logs JSON com campos permitidos, métricas em memória, saúde por componente, diagnóstico operacional e descoberta automática de testes com watch. A Fase 4 permanece pendente.
+Revisar e integrar a Fase 3 implementada nesta branch. A Fase 3 inclui logs JSON com campos permitidos, métricas em memória, saúde por componente, diagnóstico operacional e descoberta automática de testes com watch. A Fase 4 permanece pendente.
 
 As orientações de operação e recuperação de persistência estão no [README.md](./README.md#operating-and-troubleshooting).
