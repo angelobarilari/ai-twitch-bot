@@ -11,7 +11,9 @@
     "format:check": "prettier --check .",
     "prepare": "husky",
     "test": "node scripts/run-tests.mjs",
-    "test:watch": "node scripts/run-tests.mjs --watch"
+    "test:watch": "node scripts/run-tests.mjs --watch",
+    "test:report": "node scripts/run-tests.mjs --report",
+    "test:coverage": "c8 --config .c8rc.json node scripts/run-tests.mjs --report"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
@@ -20,6 +22,7 @@
   "devDependencies": {
     "@types/node": "^22.13.4",
     "@types/tmi.js": "^1.8.6",
+    "c8": "^9.1.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.9.9",

@@ -1,18 +1,10 @@
-import { observability } from "../../services/observability.js";
+import { createStatusCommand } from "./handler.js";
+export { createStatusCommand } from "./handler.js";
+import { isAiEnabled, setAiEnabled } from "../shared/ai-state.js";
 import { questionCommand } from "../question/index.js";
-import type { CommandHandler } from "../../types/commands.js";
-import { isAiEnabled } from "../shared/ai-state.js";
-
-/**
- * Handles the !status command by reporting whether AI responses are enabled.
- *
- * @param context Command context containing the chat reply function.
- * @returns A promise that resolves after the current status is sent.
- */
-export const statusCommand: CommandHandler = async ({ reply }): Promise<void> => {
-  const { health } = observability.snapshot();
-  const queue = questionCommand.getQueueStatus();
-  await reply(
-    `The AI is ${isAiEnabled() ? "enabled" : "disabled"}. Twitch: ${health.twitch}; Gemini: ${health.gemini}; persistence: ${health.aiState}/${health.language}; queue: ${queue.active ? "active" : "idle"}, ${queue.waiting} waiting.`,
-  );
-};
+import { observability } from "../../observability/index.js";
+export const statusCommand = createStatusCommand(
+  { get: isAiEnabled, set: setAiEnabled },
+  { status: questionCommand.getQueueStatus },
+  observability,
+);

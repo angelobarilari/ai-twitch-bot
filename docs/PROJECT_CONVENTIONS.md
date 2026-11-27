@@ -154,6 +154,12 @@ Servicos externos ficam em:
 src/services/
 ```
 
+Na arquitetura da Fase 4, `src/services/` preserva adaptadores de compatibilidade. Novas implementações usam os módulos de domínio: `src/ai` para providers e respostas, `src/twitch` para transporte, `src/queue` para agendamento, `src/stores` para persistência, `src/observability` para logs/métricas/saúde e `src/safety` para conteúdo, permissões e limites de abuso. A composição fica em `src/app.ts`; o ponto de entrada `src/index.ts` carrega configuração, cria dependências reais e registra sinais.
+
+Fábricas de domínio recebem dependências explicitamente e não devem ler `.env`, abrir arquivos de estado ou iniciar conexões durante a importação. O validador independente é `src/config/validate.ts`; `src/config.ts` mantém o adaptador para o ambiente do processo. Comandos com dependências expõem a fábrica em `handler.ts`; os `index.ts` existentes mantêm handlers padrão para compatibilidade. Código novo de composição deve importar a fábrica sem inicializar esses adaptadores.
+
+Providers implementam `AiProvider`, stores implementam `StateStore<T>`, limitadores implementam `RateLimiter`, a fila implementa `QuestionQueue` e o logger implementa `Logger`. Prefira os contratos aos detalhes de implementação. Use os fakes compartilhados de `src/test-support/fakes.ts` e promessas controladas nos testes de integração; não use credenciais locais ou rede real.
+
 Utilidades puras ficam em:
 
 ```text
@@ -310,6 +316,10 @@ Campos proibidos em logs:
 - secrets em mensagens de erro.
 
 ## 14. Testes
+
+Documentação mantida fica em `docs/`, com índice em `docs/README.md`; o README da raiz continua sendo a porta de entrada do projeto. Configurações e instruções de ferramentas em `.github/` permanecem em seus caminhos próprios. Relatórios gerados ficam em `reports/`, ignorados pelo Git e pelo Prettier, e não devem ser copiados para a documentação.
+
+Use `npm run test:coverage` para medir cobertura e gerar HTML, JSON, LCOV e JUnit; `npm run test:report` gera apenas o relatório de testes. A configuração de cobertura inclui arquivos de implementação não executados pela suíte, sem contar testes, fakes ou contratos contendo apenas tipos. A cobertura global deve permanecer sempre em pelo menos 90% para linhas, statements, funções e branches; qualquer métrica abaixo desse piso reprova o comando e a CI. Não reduzir limites nem excluir código executável para contornar falhas. Consulte [QUALITY.md](./QUALITY.md) para comandos e interpretação.
 
 Usar Node Test com `node:test` e `node:assert/strict`.
 

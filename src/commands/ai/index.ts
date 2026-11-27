@@ -1,41 +1,5 @@
-import { observability } from "../../services/observability.js";
-import type { CommandHandler } from "../../types/commands.js";
+import { createAiCommand } from "./handler.js";
+export { createAiCommand } from "./handler.js";
 import { isAiEnabled, setAiEnabled } from "../shared/ai-state.js";
-import { isModerator } from "../shared/permissions.js";
-
-/**
- * Handles the moderator-only !ai command for reading or changing AI state.
- *
- * @param context Command arguments, author metadata, and chat reply function.
- * @returns A promise that resolves after the command response is sent.
- */
-export const aiCommand: CommandHandler = async ({ args, reply, tags, channel }): Promise<void> => {
-  if (!isModerator(tags, channel)) {
-    await reply("Only moderators and the broadcaster can control the AI.");
-    return;
-  }
-
-  const action = args[0]?.toLowerCase();
-  if (args.length === 0) {
-    await reply(
-      `The AI is currently ${isAiEnabled() ? "enabled" : "disabled"}. Use !ai on or !ai off.`,
-    );
-    return;
-  }
-
-  if (args.length !== 1 || (action !== "on" && action !== "off")) {
-    await reply("Usage: !ai on or !ai off.");
-    return;
-  }
-
-  const enabled = action === "on";
-  try {
-    setAiEnabled(enabled);
-    observability.log("info", "admin.ai.changed", { enabled });
-  } catch (error) {
-    await reply("Could not save the AI state; the previous setting was kept.");
-    return;
-  }
-
-  await reply(`AI ${enabled ? "enabled" : "disabled"}.`);
-};
+import { observability } from "../../observability/index.js";
+export const aiCommand = createAiCommand({ get: isAiEnabled, set: setAiEnabled }, observability);

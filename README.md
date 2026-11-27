@@ -6,6 +6,18 @@ A small, modular Twitch chat bot that answers questions in chat using the Gemini
 
 This project connects to Twitch chat, listens for commands such as `!ping` and `!question`, and forwards user questions to Gemini for response generation. It is designed for local experimentation, private channel use, and iterative feature development.
 
+## Application composition
+
+Importing `src/app.ts` or the domain factories does not load dotenv, read state files, connect to Twitch, or call the provider. `createApp` accepts validated configuration, a `TwitchClient`, an AI-switch `StateStore<boolean>`, and a language `StateStore<string>`. It can also receive an `AiProvider`, `QuestionQueue`, clock, and isolated telemetry instance. Calling `start()` connects once and starts health reporting; `shutdown()` stops admission, clears waiting work, drains the active item, stops reporting, and disconnects once. Connection and shutdown failures reject their promises; only the process entrypoint sets the exit code.
+
+The default Gemini provider is created from configuration and the injected language store. Replace it with any object implementing `ask(question, options)` to change the provider without editing commands. Answer safety, character limits, concise retries, and Twitch chunking remain in the provider-independent answer handler. Provider HTTP retries and deadlines remain in `ai/gemini`. Replace a store with synchronous `get/set` operations to change persistence; failed writes must throw before changing the stored value. The file adapters retain atomic replacement, legacy-file migration, size limits, and last-known in-memory values.
+
+`QuestionQueue` owns capacity (active plus waiting), FIFO scheduling, waiting expiry, the active deadline, clear, and shutdown draining. `enqueue` returns a completion ticket and queue position or null when admission fails; `dequeue` starts the next item only while idle. Commands supply execution and notification callbacks. An expired or cleared item settles without invoking the provider; a timeout aborts its signal and frees capacity even if the provider ignores cancellation. Providers must honor cancellation to terminate their underlying work.
+
+`RateLimiter` exposes `consume` and progressive `penalize` operations. `Logger` exposes `debug/info/warn/error(event, metadata)`; `createObservability(sink)` routes sanitized operational records and periodic health through the same injected sink. Each application has its own command registry, cooldowns, queue, provider, stores, and telemetry. Compatibility exports in `services/`, command `index.ts` files, and former utility paths preserve existing callers; new composition imports the injected factories directly.
+
+Shared fakes in `src/test-support/fakes.ts` provide in-memory stores with write-failure controls, a provider with concurrency counters, deferred promises, a Twitch transport with connection/reply controls, and explicit validated test configuration. Integration tests exercise two independent applications, provider/store replacement, serial work, reply failures, shutdown draining, and startup failures without real network calls or local credentials.
+
 ## Features
 
 - Twitch chat connection using `tmi.js`
@@ -28,7 +40,7 @@ This project connects to Twitch chat, listens for commands such as `!ping` and `
 
 The bot supports a complete Twitch chat flow: viewers can ask questions, check whether AI responses are enabled, and set the channel-wide response language; moderators can control the AI and inspect or clear the queue. Failed Gemini requests and Twitch replies are logged and handled so subsequent queued questions can continue. Gemini request logs include outcome, duration, and HTTP status without exposing sensitive request content.
 
-Phase 1 stability work was merged in [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11). Phase 2 input and resource protection is implemented on this branch and awaits review and integration. See [ROADMAP.md](./ROADMAP.md) for delivery status and [SECURITY.md](./SECURITY.md) for trust boundaries, abuse limits, and credential operations.
+Phases 1, 2, and 3 were merged in [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11), [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13), and [PR #14](https://github.com/angelobarilari/ai-twitch-bot/pull/14). Phase 4 architecture work is implemented and validated locally on this branch; review and integration are pending. See [ROADMAP.md](./docs/ROADMAP.md) for delivery status and [SECURITY.md](./docs/SECURITY.md) for trust boundaries, abuse limits, and credential operations.
 
 ## Tech Stack
 
@@ -41,51 +53,42 @@ Phase 1 stability work was merged in [PR #11](https://github.com/angelobarilari/
 ## Project Structure
 
 ```text
-.
-├── src/
-│   ├── commands/
-│   │   ├── <command>/
-│   │   │   ├── index.ts
-│   │   │   └── <command>.test.ts
-│   │   ├── shared/
-│   │   │   ├── ai-state.ts
-│   │   │   └── permissions.ts
-│   │   ├── index.ts
-│   │   ├── router.ts
-│   │   └── router.test.ts
-│   ├── types/
-│   │   └── commands.ts
-│   ├── services/
-│   │   ├── abuse-limiter.ts
-│   │   ├── abuse-limiter.test.ts
-│   │   ├── gemini.ts
-│   │   ├── gemini.test.ts
-│   │   ├── response-language.ts
-│   │   ├── response-language.test.ts
-│   │   ├── shutdown.ts
-│   │   ├── shutdown.test.ts
-│   │   ├── twitch-client-options.ts
-│   │   └── twitch-client-options.test.ts
-│   ├── test-support/
-│   │   └── with-test-environment.ts
-│   ├── utils/
-│   │   └── <utility-name>/
-│   │       ├── index.ts
-│   │       └── <utility-name>.test.ts
-│   ├── config.ts
-│   ├── config.test.ts
-│   └── index.ts
-├── .env.example
-├── .gitignore
-├── README.md
-├── ROADMAP.md
-├── SECURITY.md
-├── PROJECT_CONVENTIONS.md
-├── package.json
-├── package-lock.json
-├── tsconfig.json
-├── .github/
-└── .husky/
+src/
+  index.ts                 # Process boundary: dotenv/config, real stores and transport, signals
+  app.ts                   # Isolated application composition and lifecycle
+  config.ts                # Existing runtime configuration adapter
+  config/validate.ts       # Pure validator accepting explicit environment values
+  ai/
+    types.ts               # AiProvider and AskOptions
+    answer.ts              # Provider-independent answer validation and chat delivery
+    gemini/
+      index.ts             # HTTP transport, deadlines, bounded retries, telemetry
+      prompt.ts            # Trusted system instructions and untrusted user message
+      response.ts          # Validation of unknown provider payloads
+  commands/
+    <command>/
+      handler.ts           # Dependency-injected factory for commands that need state/config
+      index.ts             # Existing default handler and compatibility exports
+      <command>.test.ts
+    shared/                # Compatibility accessors and permission exports
+    router.ts              # Existing default-registry adapter
+  twitch/
+    types.ts               # Narrow transport contract
+    client.ts              # tmi.js adapter
+    client-options.ts      # Credentials and bounded reconnect settings
+    connection.ts          # Event wiring, connection state, disconnect handling
+    message-handler.ts     # Parsing, command dispatch, command rate limits
+    shutdown.ts            # Signal registration and compatibility shutdown adapter
+  queue/question-queue.ts  # Bounded serial scheduling, expiry, timeout, clear, drain
+  stores/                  # StateStore<T>, atomic AI-state and language stores
+  observability/           # JSON logger, metrics, health snapshots
+  safety/                  # Normalization, content checks, permissions, rate limiter
+  services/                # Compatibility adapters for previous import paths
+  utils/                   # Small reusable text and filesystem helpers
+  test-support/            # Shared Twitch/provider/store fakes and environment helpers
+scripts/run-tests.mjs      # Cross-platform test discovery, watch, and JUnit reports
+docs/                      # Maintained roadmap, conventions, security, quality
+reports/                   # Generated test and coverage reports (gitignored)
 ```
 
 The command folders are `about`, `ai`, `help`, `language`, `ping`, `question`, `queue`, and `status`. Each exposes its handler through `index.ts` and keeps focused tests beside it. Utilities follow the same pattern in individual kebab-case directories. `commands/index.ts` re-exports public handlers and command types; `commands/router.ts` handles parsing and dispatch, and shared command state and permission helpers live in `commands/shared/`.
@@ -168,8 +171,8 @@ Notes:
 - `MAX_QUESTION_LENGTH` is limited to 500 characters, `MAX_ANSWER_LENGTH` to 2,000 characters, and `MAX_PENDING_QUESTIONS` to 100 accepted questions (active and waiting); defaults are `300`, `420`, and `5`, respectively.
 - `QUESTION_ACCESS` accepts `everyone`, `known`, `subscriber`, `moderator`, or `broadcaster`. The default preserves viewer access; `known` requires a Twitch username and numeric user ID.
 - `QUESTION_WINDOW_MS` and `MAX_QUESTIONS_PER_WINDOW` default to 5 question attempts per user per 60 seconds, including rejected requests. Unsafe questions and user cooldown violations trigger progressive penalties from `ABUSE_PENALTY_MS`, with a temporary `ABUSE_BAN_MS` ban at `ABUSE_MAX_STRIKES`.
-- New duration settings must be positive safe integers no greater than 2,147,483,647 ms; the per-window attempt limit is at most 100 and the strike threshold at most 20. See [abuse limits](./SECURITY.md#abuse-limits) for expiration and command budgets.
-- Keep `.env` out of version control and never commit real secrets. See [credential rotation](./SECURITY.md#rotate-credentials) for replacement steps.
+- New duration settings must be positive safe integers no greater than 2,147,483,647 ms; the per-window attempt limit is at most 100 and the strike threshold at most 20. See [abuse limits](./docs/SECURITY.md#abuse-limits) for expiration and command budgets.
+- Keep `.env` out of version control and never commit real secrets. See [credential rotation](./docs/SECURITY.md#rotate-credentials) for replacement steps.
 
 ## Commands
 
@@ -225,11 +228,11 @@ Example:
 
 ## Command Parsing and Dispatch
 
-The bot normalizes incoming Unicode with NFKC, rejects malformed Unicode and hidden controls, trims whitespace, and treats the first whitespace-separated token as a command when it begins with `!`. Command names are matched without regard to case; the remaining text is passed to the command as its arguments. Messages that are not commands, contain only the `!` prefix, use an unknown command name, or were authored by the bot itself are ignored without a reply. Excess commands are silently dropped according to the separate ordinary and administrative budgets documented in [SECURITY.md](./SECURITY.md#abuse-limits).
+The bot normalizes incoming Unicode with NFKC, rejects malformed Unicode and hidden controls, trims whitespace, and treats the first whitespace-separated token as a command when it begins with `!`. Command names are matched without regard to case; the remaining text is passed to the command as its arguments. Messages that are not commands, contain only the `!` prefix, use an unknown command name, or were authored by the bot itself are ignored without a reply. Excess commands are silently dropped according to the separate ordinary and administrative budgets documented in [SECURITY.md](./docs/SECURITY.md#abuse-limits).
 
 ## Safety and Usage Notes
 
-- Local safety checks and Gemini safety settings are used, but they are not a substitute for human moderation. Questions and generated answers are checked for common injection patterns, administrative commands, unexpected links, and sensitive data. Heuristic filters can miss attacks or reject legitimate text; see [security details](./SECURITY.md).
+- Local safety checks and Gemini safety settings are used, but they are not a substitute for human moderation. Questions and generated answers are checked for common injection patterns, administrative commands, unexpected links, and sensitive data. Heuristic filters can miss attacks or reject legitimate text; see [security details](./docs/SECURITY.md).
 - For public channels, keep cooldowns strict and consider role-based access controls.
 - Gemini quota is external and may be limited or interrupted depending on provider limits.
 - Do not treat the free tier as unlimited access.
@@ -259,6 +262,8 @@ Stable events include `process.startup`, `process.health`, `process.shutdown`, `
 For a timeout, compare `gemini.request` (`outcome`, `attempts`, `status`, `durationMs`) with `question.completed` and `queue.expired`: provider failure, active deadline, and queue waiting deadline are different paths. HTTP 401/403 requires credential/configuration correction; HTTP 429 and 5xx may use bounded retries. `twitch.state` only records transitions, suppressing repeated disconnected/reconnect notifications within one outage. Check the Twitch health and reconnection counter to distinguish an outage from a slow provider. `persistence.write` errors mark only the affected store degraded; check storage permissions, free space, and the configured state path, then retry the setting change to verify recovery. The previous in-memory setting remains active after a failed write.
 
 ## Testing
+
+Coverage and generated test reports are part of Phase 4 testability work. Global coverage must always be at least 90% for each of lines, statements, functions, and branches. `npm run test:coverage` and CI fail below any of these thresholds. Run `npm run test:coverage` for the terminal summary, HTML, JSON, LCOV, and JUnit; open `reports/coverage/index.html` for file-by-file inspection. Run `npm run test:report` for JUnit without coverage. Reports stay in the ignored `reports/` directory; maintained documentation is indexed in [docs/README.md](./docs/README.md). See [quality and coverage](./docs/QUALITY.md) for scope, limitations, and CI artifacts.
 
 Run the project tests with:
 
@@ -294,7 +299,7 @@ npm run format
 
 ## Git Workflow
 
-Branches, commits, and pull requests must follow [`PROJECT_CONVENTIONS.md`](./PROJECT_CONVENTIONS.md). Work on a focused branch created from an up-to-date `main`; use the required branch prefix and English kebab-case description. Commit messages and PR titles/descriptions must be in English and follow the documented Conventional Commits and PR formats.
+Branches, commits, and pull requests must follow [`PROJECT_CONVENTIONS.md`](./docs/PROJECT_CONVENTIONS.md). Work on a focused branch created from an up-to-date `main`; use the required branch prefix and English kebab-case description. Commit messages and PR titles/descriptions must be in English and follow the documented Conventional Commits and PR formats.
 
 Typical flow:
 

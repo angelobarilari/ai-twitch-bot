@@ -4,3 +4,5 @@ dist/
 .ai-state.json
 .ai-language.json
 .data/
+
+reports/
