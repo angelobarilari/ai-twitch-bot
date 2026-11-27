@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, copyFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -40,15 +40,23 @@ test("runner executes TypeScript files and propagates failures with nonzero exit
       file,
       'import { test } from "node:test"; const value: number = 1; test("fixture", () => { if (value !== 1) throw new Error("bad"); });',
     );
-    const success = spawnSync(process.execPath, [runner, file], { encoding: "utf8", env });
+    const success = spawnSync(process.execPath, [runner, "--report", file], {
+      encoding: "utf8",
+      env,
+    });
     assert.equal(success.status, 0, success.stderr + success.stdout);
+    assert.match(readFileSync(join(root, "reports/tests/junit.xml"), "utf8"), /fixture/);
     writeFileSync(
       file,
       'import { test } from "node:test"; test("fixture fails", () => { throw new Error("expected failure"); });',
     );
-    const failure = spawnSync(process.execPath, [runner, file], { encoding: "utf8", env });
+    const failure = spawnSync(process.execPath, [runner, "--report", file], {
+      encoding: "utf8",
+      env,
+    });
     assert.equal(failure.status, 1, failure.stderr + failure.stdout);
     assert.match(failure.stdout, /fixture fails/);
+    assert.match(readFileSync(join(root, "reports/tests/junit.xml"), "utf8"), /<failure/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

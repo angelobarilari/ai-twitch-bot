@@ -1,0 +1,16 @@
+{
+  "all": true,
+  "check-coverage": true,
+  "lines": 90,
+  "statements": 90,
+  "functions": 90,
+  "branches": 90,
+  "src": ["src"],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/test-support/**", "src/types/**", "src/**/types.ts"],
+  "extension": [".ts"],
+  "exclude-after-remap": true,
+  "reporter": ["text", "html", "json-summary", "lcov"],
+  "reports-dir": "reports/coverage",
+  "temp-directory": "reports/coverage/.tmp"
+}

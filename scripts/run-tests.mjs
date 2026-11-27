@@ -1,4 +1,4 @@
-import { readdirSync, realpathSync, statSync, watch } from "node:fs";
+import { mkdirSync, readdirSync, realpathSync, statSync, watch } from "node:fs";
 import { resolve, relative, sep, isAbsolute } from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -21,13 +21,15 @@ export const discoverTests = (directory) =>
 
 /**
  * Runs isolated TypeScript tests and forwards the runner's exit status.
- * @param args Optional watch flag or explicit files underneath src.
+ * @param args Optional watch/report flag or explicit files underneath src.
  * @returns Nothing.
  */
 export const runTests = (args) => {
   const root = fileURLToPath(new URL("../src/", import.meta.url));
   const watching = args.includes("--watch");
-  const selected = args.filter((arg) => arg !== "--watch");
+  const reporting = args.includes("--report");
+  if (watching && reporting) throw new Error("Report generation does not support watch mode.");
+  const selected = args.filter((arg) => arg !== "--watch" && arg !== "--report");
   const files = selected.length
     ? selected.map((file) => {
         const path = realpathSync(resolve(file));
@@ -90,7 +92,18 @@ export const runTests = (args) => {
     launch();
     return;
   }
-  const child = spawn(process.execPath, ["--import", "tsx", "--test", ...files], {
+  const reporterArgs = [];
+  if (reporting) {
+    const reportDirectory = fileURLToPath(new URL("../reports/tests/", import.meta.url));
+    mkdirSync(reportDirectory, { recursive: true });
+    reporterArgs.push(
+      "--test-reporter=spec",
+      "--test-reporter-destination=stdout",
+      "--test-reporter=junit",
+      `--test-reporter-destination=${resolve(reportDirectory, "junit.xml")}`,
+    );
+  }
+  const child = spawn(process.execPath, ["--import", "tsx", "--test", ...reporterArgs, ...files], {
     stdio: "inherit",
   });
   child.on("error", () => {

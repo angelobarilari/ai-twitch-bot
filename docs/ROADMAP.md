@@ -8,7 +8,7 @@ Cada fase deve ser concluída antes da seguinte. Não avançar para novas funcio
 
 O projeto já possui:
 
-- Fase 1 integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); Fase 2 integrada na [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13); Fase 3 implementada e validada localmente nesta branch, aguardando revisão e integração;
+- Fase 1 integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); Fase 2 integrada na [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13); Fase 3 integrada na [PR #14](https://github.com/angelobarilari/ai-twitch-bot/pull/14); Fase 4 implementada e validada localmente, aguardando revisão e integração;
 - conexão com Twitch usando `tmi.js`;
 - comandos modulares;
 - integração com Gemini;
@@ -179,7 +179,7 @@ O projeto já possui:
 
 **Prioridade:** alta.
 
-**Status:** implementada e validada localmente em `feature/phase-3-observability`, atualizada com `main` após a integração da Fase 2. A validação remota Windows/Linux depende da execução do CI.
+**Status:** implementada, validada em Windows/Linux e integrada na [PR #14](https://github.com/angelobarilari/ai-twitch-bot/pull/14). As fases 1 a 3 passaram novamente na validação local sem `.env`, formatação, build e auditoria de dependências antes da abertura da branch da Fase 4. Não há pendências aplicáveis às fases anteriores; o endpoint HTTP abaixo permanece condicionado à futura execução como serviço.
 
 ## Entregáveis
 
@@ -262,17 +262,19 @@ Eventos iniciais sugeridos:
 
 **Prioridade:** média.
 
+**Status:** implementada e validada localmente em `refactor/phase-4-architecture`, criada a partir de `main` após a integração da Fase 3. A entrega aguarda revisão e integração, com cobertura global mínima obrigatória de 90% nas quatro métricas.
+
 ## Entregáveis
 
 ### Separação de responsabilidades
 
-- [ ] Criar módulo de inicialização da aplicação.
-- [ ] Extrair configuração para um validador independente.
-- [ ] Extrair a conexão Twitch para `src/twitch`.
-- [ ] Extrair a fila para `src/queue`.
-- [ ] Extrair persistência para `src/stores`.
-- [ ] Extrair observabilidade para `src/observability`.
-- [ ] Extrair regras de segurança para `src/safety`.
+- [x] Criar módulo de inicialização da aplicação.
+- [x] Extrair configuração para um validador independente.
+- [x] Extrair a conexão Twitch para `src/twitch`.
+- [x] Extrair a fila para `src/queue`.
+- [x] Extrair persistência para `src/stores`.
+- [x] Extrair observabilidade para `src/observability`.
+- [x] Extrair regras de segurança para `src/safety`.
 
 Estrutura sugerida:
 
@@ -291,25 +293,38 @@ src/
 
 ### Contratos
 
-- [ ] Criar contrato `AiProvider.ask(question, options)`.
-- [ ] Criar contrato `StateStore.get/set`.
-- [ ] Criar contrato `RateLimiter.consume(userId)`.
-- [ ] Criar contrato `QuestionQueue.enqueue/dequeue/clear/status`.
-- [ ] Criar contrato `Logger.info/error(event, metadata)`.
+- [x] Criar contrato `AiProvider.ask(question, options)`.
+- [x] Criar contrato `StateStore.get/set`.
+- [x] Criar contrato `RateLimiter.consume(userId)`.
+- [x] Criar contrato `QuestionQueue.enqueue/dequeue/clear/status`.
+- [x] Criar contrato `Logger.info/error(event, metadata)`.
 
 ### Provider Gemini
 
-- [ ] Separar prompts, validação e chamada HTTP.
-- [ ] Permitir substituir Gemini em testes e integrações futuras.
-- [ ] Não acoplar o Gemini a comandos de chat.
-- [ ] Centralizar timeout e retry no provider.
+- [x] Separar prompts, validação e chamada HTTP.
+- [x] Permitir substituir Gemini em testes e integrações futuras.
+- [x] Não acoplar o Gemini a comandos de chat.
+- [x] Centralizar timeout e retry no provider.
 
 ### Testabilidade
 
-- [ ] Usar injeção de dependências nos fluxos principais.
-- [ ] Criar fakes de Twitch, Gemini e armazenamento.
-- [ ] Executar testes de integração com concorrência controlada.
-- [ ] Mover mocks grandes para helpers compartilhados.
+- [x] Usar injeção de dependências nos fluxos principais.
+- [x] Criar fakes de Twitch, Gemini e armazenamento.
+- [x] Executar testes de integração com concorrência controlada.
+- [x] Mover mocks grandes para helpers compartilhados.
+
+Os contratos e as fábricas da aplicação não iniciam conexão, leem `.env` ou criam stores na importação. `src/index.ts` compõe as dependências reais; `src/app.ts` recebe transportes, stores, provider, fila e telemetria. Adaptadores nos caminhos anteriores preservam a API dos testes e comandos existentes. Os fakes compartilhados estão em `src/test-support/fakes.ts`. A suíte local passou em 130 testes sem carregar `.env`, incluindo isolamento entre instâncias, troca de provider e store, fila serial, falhas de reply, drenagem no shutdown e recuperação de saúde da persistência.
+
+### Cobertura e organização da documentação
+
+- [x] Adicionar medição de linhas, statements, branches e funções com `npm run test:coverage`.
+- [x] Incluir implementações não importadas pela suíte e excluir testes, fakes e contratos sem código executável.
+- [x] Gerar HTML, JSON, LCOV e resultado de testes em JUnit dentro de `reports/`, sem versionar artefatos gerados.
+- [x] Configurar a CI para coletar relatórios de Windows/Linux e disponibilizá-los como artefatos.
+- [x] Centralizar documentação mantida em `docs/`, preservando o README principal na raiz e atualizando os links.
+- [x] Documentar interpretação, limitações e próximos passos para limites mínimos de cobertura em [QUALITY.md](./QUALITY.md).
+
+É obrigatório manter pelo menos 90% globais em cada métrica: linhas, statements, funções e branches. `npm run test:coverage` e a CI falham se qualquer métrica ficar abaixo desse piso. Os limites não devem ser reduzidos para aprovar alterações. A entrega inclui essa verificação na CI de Windows/Linux.
 
 ## Criterios de conclusao
 
@@ -513,6 +528,6 @@ Exemplos futuros de ferramentas:
 
 # Próxima entrega recomendada
 
-Revisar e integrar a Fase 3 implementada nesta branch. A Fase 3 inclui logs JSON com campos permitidos, métricas em memória, saúde por componente, diagnóstico operacional e descoberta automática de testes com watch. A Fase 4 permanece pendente.
+Revisar e integrar a Fase 4. A entrega separa inicialização, Twitch, fila, stores, observabilidade, segurança e provider, preservando as proteções das fases anteriores e exigindo cobertura global mínima de 90%. Não iniciar a Fase 5 antes da validação e integração da Fase 4.
 
-As orientações de operação e recuperação de persistência estão no [README.md](./README.md#operating-and-troubleshooting).
+As orientações de operação e recuperação de persistência estão no [README.md](../README.md#operating-and-troubleshooting).
