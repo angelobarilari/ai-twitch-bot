@@ -45,5 +45,8 @@ test("statusCommand reports enabled and disabled AI state", async () => {
   setAiEnabled(false);
   await statusCommand(context);
 
-  assert.deepEqual(replies, ["The AI is enabled.", "The AI is disabled."]);
+  assert.deepEqual(replies, [
+    "The AI is enabled. Twitch: unknown; Gemini: unknown; persistence: ready/ready; queue: idle, 0 waiting.",
+    "The AI is disabled. Twitch: unknown; Gemini: unknown; persistence: ready/ready; queue: idle, 0 waiting.",
+  ]);
 });

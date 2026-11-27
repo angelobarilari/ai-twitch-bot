@@ -1,3 +1,4 @@
+import { observability } from "../../services/observability.js";
 import type { CommandHandler } from "../../types/commands.js";
 import { isAiEnabled, setAiEnabled } from "../shared/ai-state.js";
 import { isModerator } from "../shared/permissions.js";
@@ -30,9 +31,8 @@ export const aiCommand: CommandHandler = async ({ args, reply, tags, channel }):
   const enabled = action === "on";
   try {
     setAiEnabled(enabled);
-    console.info(JSON.stringify({ event: "admin.ai.changed", enabled }));
+    observability.log("info", "admin.ai.changed", { enabled });
   } catch (error) {
-    console.error("Failed to persist AI state.");
     await reply("Could not save the AI state; the previous setting was kept.");
     return;
   }

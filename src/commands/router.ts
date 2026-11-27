@@ -1,4 +1,5 @@
-﻿import type tmi from "tmi.js";
+import type tmi from "tmi.js";
+import { observability } from "../services/observability.js";
 import type { CommandHandler, MessageHandler, ParsedCommand } from "../types/commands.js";
 import { aiCommand } from "./ai/index.js";
 import { aboutCommand } from "./about/index.js";
@@ -91,6 +92,8 @@ const handleMessage = async (
   const command = commandRegistry.get(parsedCommand.name);
   if (!command) return;
 
+  const startedAt = performance.now();
+  let outcome = "success";
   try {
     await command({
       channel,
@@ -100,8 +103,24 @@ const handleMessage = async (
       reply: createReply(client, channel),
     });
   } catch (error) {
-    console.error("Failed to handle Twitch chat command.");
+    outcome = "error";
+    observability.log("error", "command.completed", {
+      command: parsedCommand.name,
+      outcome,
+      durationMs: performance.now() - startedAt,
+      category:
+        error instanceof TypeError || error instanceof ReferenceError ? "bug" : "operational",
+    });
   }
+  observability.increment(
+    `commands.${commands.has(parsedCommand.name) ? parsedCommand.name : "other"}.${outcome}`,
+  );
+  if (outcome === "success")
+    observability.log("info", "command.completed", {
+      command: parsedCommand.name,
+      outcome,
+      durationMs: performance.now() - startedAt,
+    });
 };
 
 /**
@@ -131,7 +150,9 @@ export const createMessageHandler = (
   let ordinaryCount = 0;
   let administrativeCount = 0;
   return async (channel, tags, message, self): Promise<void> => {
-    if (self || message.length > 2_000) return;
+    if (self) return;
+    observability.increment("messages.received");
+    if (message.length > 2_000) return;
     const parsed = parseCommand(message);
     if (!parsed || !commandRegistry.has(parsed.name)) return;
     const admin = (parsed.name === "ai" || parsed.name === "queue") && isModerator(tags, channel);
@@ -140,13 +161,26 @@ export const createMessageHandler = (
       ordinaryCount = 0;
       administrativeCount = 0;
     }
-    if (admin ? administrativeCount >= 20 : ordinaryCount >= 20) return;
+    if (admin ? administrativeCount >= 20 : ordinaryCount >= 20) {
+      observability.increment("commands.cooldown");
+      observability.log("debug", "command.completed", {
+        command: parsed.name,
+        outcome: "cooldown",
+      });
+      return;
+    }
     if (
       !(admin ? administrative : ordinary).consume(
         `${channel}:${tags["user-id"] ?? tags.username?.toLowerCase() ?? "anonymous"}`,
       )
-    )
+    ) {
+      observability.increment("commands.cooldown");
+      observability.log("debug", "command.completed", {
+        command: parsed.name,
+        outcome: "cooldown",
+      });
       return;
+    }
     if (admin) administrativeCount += 1;
     else ordinaryCount += 1;
     await handleMessage(client, commandRegistry, channel, tags, message, false);

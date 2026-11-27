@@ -27,7 +27,6 @@ export const queueCommand: CommandHandler = async ({
 
   if (action === "clear") {
     const removed = await questionCommand.clearPendingQuestions();
-    console.info(JSON.stringify({ event: "admin.queue.cleared", removed }));
     await reply(
       removed === 0
         ? "There are no waiting questions to remove."

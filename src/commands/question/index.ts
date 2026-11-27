@@ -1,3 +1,4 @@
+import { observability } from "../../services/observability.js";
 import { config } from "../../config.js";
 import { askGemini } from "../../services/gemini.js";
 import type { GeminiRequester } from "../../services/gemini.js";
@@ -16,6 +17,7 @@ export type QuestionQueueStatus = {
 };
 
 type PendingQuestion = {
+  enqueuedAt: number;
   question: string;
   reply: (message: string) => Promise<unknown>;
   resolve: () => void;
@@ -127,7 +129,10 @@ export const createQuestionCommand = (
     void Promise.resolve()
       .then(() => reply(message))
       .catch((error: unknown) => {
-        console.error("Failed to send a question queue notification:");
+        observability.log("error", "queue.notification.failed", {
+          outcome: "error",
+          category: "operational",
+        });
       });
   };
 
@@ -141,6 +146,9 @@ export const createQuestionCommand = (
     const index = pendingQuestions.indexOf(pending);
     if (index === -1) return;
 
+    observability.increment("queue.expired");
+    observability.observe("queue.waitMs", Math.max(0, now() - pending.enqueuedAt));
+    observability.log("warn", "queue.expired", { outcome: "expired" });
     pendingQuestions.splice(index, 1);
     pendingQuestionCount -= 1;
     pending.resolve();
@@ -156,6 +164,11 @@ export const createQuestionCommand = (
    */
   const removePendingQuestions = (message?: string): number => {
     const removedQuestions = pendingQuestions.splice(0);
+    if (removedQuestions.length)
+      observability.log("info", "queue.cleared", {
+        outcome: "cleared",
+        count: removedQuestions.length,
+      });
     pendingQuestionCount -= removedQuestions.length;
 
     for (const pending of removedQuestions) {
@@ -180,40 +193,43 @@ export const createQuestionCommand = (
     question: string,
     reply: PendingQuestion["reply"],
     signal: AbortSignal,
-  ): Promise<void> => {
+  ): Promise<string> => {
     try {
-      let answer = normalizeChatText((await askQuestion(question, { signal })) ?? "");
-      if (signal.aborted) return;
+      const generated = await askQuestion(question, { signal });
+      let answer = normalizeChatText(generated ?? "");
+      if (signal.aborted) return "cancelled";
       if (!answer || !isSafeChatText(answer, [config.apiKey, config.token])) {
         await reply("The AI could not generate a safe answer for that question.");
-        return;
+        return generated === null ? "error" : "unsafe";
       }
 
       if (Array.from(answer).length > config.maxAnswerLength) {
         answer = normalizeChatText((await askQuestion(question, { signal, concise: true })) ?? "");
-        if (signal.aborted) return;
+        if (signal.aborted) return "cancelled";
       }
 
       if (!answer || !isSafeChatText(answer, [config.apiKey, config.token])) {
         await reply("The AI could not generate a safe answer for that question.");
-        return;
+        return "unsafe";
       }
 
       if (Array.from(answer).length > config.maxAnswerLength) {
         await reply(
           "I could not provide a complete answer within the chat limit. Please try a shorter question.",
         );
-        return;
+        return "too_long";
       }
 
       for (const chunk of splitForTwitch(answer, 430)) {
-        if (signal.aborted) return;
+        if (signal.aborted) return "cancelled";
         await reply(chunk);
       }
+      observability.observe("answers.characters", Array.from(answer).length);
+      return "success";
     } catch (error) {
-      if (signal.aborted) return;
-      console.error("Error while querying the AI:");
+      if (signal.aborted) return "cancelled";
       await reply("I could not query the AI right now. Please try again later.");
+      return "error";
     }
   };
 
@@ -224,25 +240,40 @@ export const createQuestionCommand = (
    * @returns A promise that resolves after processing or timeout notification.
    */
   const answerQuestionWithTimeout = async (pending: PendingQuestion): Promise<void> => {
+    const startedAt = performance.now();
+    let outcome = "error";
     const controller = new AbortController();
     let timer: NodeJS.Timeout | undefined;
 
     try {
       const timedOut = await Promise.race([
-        answerQuestion(pending.question, pending.reply, controller.signal).then(() => false),
-        new Promise<boolean>((resolve) => {
+        answerQuestion(pending.question, pending.reply, controller.signal),
+        new Promise<string>((resolve) => {
           timer = setTimeout(() => {
             controller.abort();
-            resolve(true);
+            resolve("timeout");
           }, questionTimeoutMs);
         }),
       ]);
 
-      if (timedOut) {
+      outcome = timedOut;
+      if (timedOut === "timeout") {
         sendDetachedReply(pending.reply, "The AI request timed out. Please try again later.");
       }
     } finally {
       if (timer) clearTimeout(timer);
+      observability.increment(`questions.${outcome}`);
+      observability.observe("questions.durationMs", performance.now() - startedAt);
+      observability.log(
+        outcome === "success" ? "info" : outcome === "error" ? "error" : "warn",
+        "question.completed",
+        {
+          outcome,
+          category: "operational",
+          durationMs: performance.now() - startedAt,
+          queueWaiting: pendingQuestions.length,
+        },
+      );
     }
   };
 
@@ -258,6 +289,7 @@ export const createQuestionCommand = (
     if (!pending) return;
     if (pending.expiresTimer) clearTimeout(pending.expiresTimer);
 
+    observability.observe("queue.waitMs", Math.max(0, now() - pending.enqueuedAt));
     activeQuestion = true;
     void answerQuestionWithTimeout(pending)
       .then(pending.resolve, pending.reject)
@@ -287,6 +319,8 @@ export const createQuestionCommand = (
       return;
     }
     if (!abuseLimiter.consume(userKey)) {
+      observability.increment("questions.cooldown");
+      observability.log("debug", "question.rejected", { outcome: "cooldown" });
       await reply("Too many attempts. Please try again later.");
       return;
     }
@@ -325,12 +359,16 @@ export const createQuestionCommand = (
     const userAvailableAt = (lastCommandAt.get(userKey) ?? -Infinity) + config.userCooldownMs;
     const globalAvailableAt = lastGlobalCommandAt + config.commandCooldownMs;
     if (currentTime < userAvailableAt) {
+      observability.increment("questions.cooldown");
+      observability.log("debug", "question.rejected", { outcome: "cooldown" });
       abuseLimiter.penalize(userKey);
       await reply(`@${username}, please wait ${remainingSeconds(userAvailableAt, currentTime)}s.`);
       return;
     }
 
     if (currentTime < globalAvailableAt) {
+      observability.increment("questions.cooldown");
+      observability.log("debug", "question.rejected", { outcome: "cooldown" });
       await reply(
         `Please wait ${remainingSeconds(globalAvailableAt, currentTime)}s before the next question.`,
       );
@@ -338,6 +376,8 @@ export const createQuestionCommand = (
     }
 
     if (pendingQuestionCount >= config.maxPendingQuestions) {
+      observability.increment("questions.full");
+      observability.log("warn", "question.rejected", { outcome: "full" });
       await reply("The AI question queue is full. Please try again later.");
       return;
     }
@@ -356,12 +396,14 @@ export const createQuestionCommand = (
 
     const responseTask = new Promise<void>((resolve, reject) => {
       if (activeQuestion) queuedPosition = pendingQuestions.length + 1;
-      const pending: PendingQuestion = { question, reply, resolve, reject };
+      const pending: PendingQuestion = { enqueuedAt: now(), question, reply, resolve, reject };
       pending.expiresTimer = setTimeout(
         () => expirePendingQuestion(pending),
         questionQueueTimeoutMs,
       );
       pendingQuestions.push(pending);
+      observability.increment("questions.accepted");
+      observability.log("debug", "question.queued", { queueWaiting: pendingQuestions.length });
       processNextQuestion();
     });
     const responseTaskOutcome = responseTask.then(
@@ -375,9 +417,7 @@ export const createQuestionCommand = (
       } catch (error) {
         void responseTaskOutcome.then((outcome) => {
           if (!outcome.succeeded) {
-            console.error(
-              "Failed to process a queued question after its queue notification failed:",
-            );
+            observability.log("error", "queue.notification.failed", { outcome: "error" });
           }
         });
         throw error;
@@ -409,6 +449,10 @@ export const createQuestionCommand = (
         }),
       );
 
+      observability.log("info", "queue.cleared", {
+        outcome: "cleared",
+        count: removedQuestions.length,
+      });
       return removedQuestions.length;
     },
     stopAccepting: (): void => {

@@ -179,15 +179,17 @@ O projeto já possui:
 
 **Prioridade:** alta.
 
+**Status:** implementada e validada localmente em `feature/phase-3-observability`, baseada na Fase 2 ainda não integrada. A validação remota Windows/Linux depende da execução do CI.
+
 ## Entregáveis
 
 ### Logs estruturados
 
-- [ ] Adicionar eventos padronizados para conexão, comandos e fila.
-- [ ] Registrar resultado, duração e status HTTP quando existir.
-- [ ] Separar nível de log: debug, info, warn e error.
-- [ ] Nunca registrar pergunta, resposta ou credencial.
-- [ ] Reduzir logs duplicados durante reconexões.
+- [x] Adicionar eventos padronizados para conexão, comandos e fila.
+- [x] Registrar resultado, duração e status HTTP quando existir.
+- [x] Separar nível de log: debug, info, warn e error.
+- [x] Nunca registrar pergunta, resposta ou credencial.
+- [x] Reduzir logs duplicados durante reconexões.
 
 Eventos iniciais sugeridos:
 
@@ -202,29 +204,37 @@ Eventos iniciais sugeridos:
 
 ### Métricas locais
 
-- [ ] mensagens recebidas;
-- [ ] comandos por tipo;
-- [ ] tamanho da fila;
-- [ ] tempo de espera;
-- [ ] tempo de resposta da IA;
-- [ ] taxa de sucesso, timeout e erro;
-- [ ] comandos rejeitados por cooldown;
-- [ ] reconexões;
-- [ ] tamanho médio das respostas.
+- [x] mensagens recebidas;
+- [x] comandos por tipo;
+- [x] tamanho da fila;
+- [x] tempo de espera;
+- [x] tempo de resposta da IA;
+- [x] taxa de sucesso, timeout e erro;
+- [x] comandos rejeitados por cooldown;
+- [x] reconexões;
+- [x] tamanho médio das respostas.
 
 ### Saúde do processo
 
-- [ ] Melhorar `!status` com estado da IA e disponibilidade básica.
-- [ ] Adicionar log periódico de saúde.
-- [ ] Separar estado do Twitch, Gemini, persistência e fila.
-- [ ] Adicionar endpoint de healthcheck local se o bot virar serviço.
+- [x] Melhorar `!status` com estado da IA e disponibilidade básica.
+- [x] Adicionar log periódico de saúde.
+- [x] Separar estado do Twitch, Gemini, persistência e fila.
+- [ ] Adicionar endpoint de healthcheck local se o bot virar serviço. **Condicional:** o bot continua como processo CLI; saúde local disponível em `!status` e `process.health`, sem listener HTTP.
 
 ### Diagnóstico
 
-- [ ] Criar relatório inicial de configuração sem expor secrets.
-- [ ] Tornar erros operacionais distinguíveis de bugs.
-- [ ] Definir IDs de evento estáveis para logs operacionais.
-- [ ] Documentar como investigar timeout, reconexão e falha de persistência.
+- [x] Criar relatório inicial de configuração sem expor secrets.
+- [x] Tornar erros operacionais distinguíveis de bugs.
+- [x] Definir IDs de evento estáveis para logs operacionais.
+- [x] Documentar como investigar timeout, reconexão e falha de persistência.
+
+### Execução e descoberta de testes
+
+- [x] Substituir a lista manual de arquivos no script `test` do `package.json` por descoberta automática de `src/**/*.test.ts`.
+- [x] Garantir que novos testes sejam incluídos sem editar o `package.json`, sem executar arquivos de `dist/` ou `node_modules/`.
+- [x] Usar uma solução compatível com Windows e Linux/CI, sem depender da expansão de glob do shell.
+- [x] Preservar a execução com TypeScript, o isolamento dos testes e o código de saída não zero quando houver falhas.
+- [x] Alinhar `test:watch` à mesma descoberta e documentar como executar um arquivo específico.
 
 ## Critérios de conclusão
 
@@ -232,6 +242,7 @@ Eventos iniciais sugeridos:
 - uma pergunta não deixa conteúdo sensível registrado;
 - o operador sabe a saúde de Twitch, Gemini e fila;
 - o dashboard ou a coleta posterior não exigem alteração do formato de logs.
+- novos arquivos `*.test.ts` em `src/` são executados por `npm test` sem manutenção de uma lista manual.
 
 ## Testes da fase
 
@@ -241,6 +252,7 @@ Eventos iniciais sugeridos:
 - eventos obrigatórios em sucesso e falha;
 - atualização correta das métricas;
 - healthcheck em estados variados.
+- descoberta de testes em diretórios aninhados, inclusão automática de um novo arquivo e propagação de falhas no Windows e no CI.
 
 ---
 
@@ -501,6 +513,6 @@ Exemplos futuros de ferramentas:
 
 # Próxima entrega recomendada
 
-Revisar e integrar a Fase 2 antes de iniciar a Fase 3. A entrega inclui filtros de entrada e saída, limites contra abuso, permissões consistentes, logs sem conteúdo privado, auditoria de dependências e varredura de secrets no CI. Consultar [SECURITY.md](./SECURITY.md) para operação e limitações. As fases seguintes permanecem pendentes.
+Revisar e integrar a Fase 2 e, em seguida, revisar a Fase 3 implementada nesta branch. A Fase 3 inclui logs JSON com campos permitidos, métricas em memória, saúde por componente, diagnóstico operacional e descoberta automática de testes com watch. A Fase 4 permanece pendente.
 
 As orientações de operação e recuperação de persistência estão no [README.md](./README.md#operating-and-troubleshooting).

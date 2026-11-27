@@ -1,4 +1,6 @@
 import tmi from "tmi.js";
+import { observability, startHealthReporting } from "./services/observability.js";
+import { isAiEnabled } from "./commands/shared/ai-state.js";
 import { createMessageHandler } from "./commands/index.js";
 import { questionCommand } from "./commands/question/index.js";
 import { config } from "./config.js";
@@ -6,6 +8,7 @@ import { createShutdownHandler, registerShutdownHandlers } from "./services/shut
 import { createTwitchClientOptions } from "./services/twitch-client-options.js";
 
 const client = new tmi.Client(createTwitchClientOptions(config));
+let shuttingDown = false;
 
 /**
  * Logs the successful Twitch connection.
@@ -15,28 +18,40 @@ const client = new tmi.Client(createTwitchClientOptions(config));
  * @returns Nothing.
  */
 const handleConnected = (_address: string, port: number): void => {
-  console.log(`Bot connected to channel #${config.channel} on port ${port}.`);
+  observability.setHealth("twitch", "ready");
 };
 
 client.on("connected", handleConnected);
-client.on("connecting", (address, port) => {
-  console.log(`Connecting to Twitch at ${address}:${port}.`);
-});
 client.on("reconnect", () => {
-  console.warn("Twitch connection lost; reconnecting.");
+  if (!shuttingDown) observability.setHealth("twitch", "degraded");
 });
 client.on("disconnected", () => {
-  console.warn("Disconnected from Twitch.");
+  observability.setHealth("twitch", "degraded");
 });
 client.on("message", createMessageHandler(client));
 
+const stopHealthReporting = startHealthReporting(questionCommand.getQueueStatus, isAiEnabled);
+observability.log("info", "process.startup", {
+  maxPendingQuestions: config.maxPendingQuestions,
+  questionTimeoutMs: config.questionTimeoutMs,
+  questionQueueTimeoutMs: config.questionQueueTimeoutMs,
+  geminiTimeoutMs: config.geminiTimeoutMs,
+  maxRetries: config.geminiMaxRetries,
+  maxQuestionLength: config.maxQuestionLength,
+  maxAnswerLength: config.maxAnswerLength,
+  enabled: isAiEnabled(),
+});
+const drainAndDisconnect = createShutdownHandler(client, questionCommand);
 /**
- * Disconnects the Twitch client after the current question processing is drained.
- *
- * @param signal Signal that initiated shutdown.
- * @returns A promise that resolves after the disconnect attempt completes.
+ * Stops periodic reporting and drains work before disconnecting.
+ * @param signal Termination signal.
+ * @returns Completion of shutdown.
  */
-const shutdown = createShutdownHandler(client, questionCommand);
+const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+  shuttingDown = true;
+  stopHealthReporting();
+  await drainAndDisconnect(signal);
+};
 registerShutdownHandlers((signal, listener) => {
   process.once(signal, listener);
 }, shutdown);
@@ -44,6 +59,7 @@ registerShutdownHandlers((signal, listener) => {
 try {
   await client.connect();
 } catch {
-  console.error("Failed to connect to Twitch.");
+  stopHealthReporting();
+  observability.setHealth("twitch", "degraded");
   process.exitCode = 1;
 }

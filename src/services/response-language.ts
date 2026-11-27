@@ -1,3 +1,4 @@
+import { observability } from "./observability.js";
 import { join, resolve } from "node:path";
 import { config } from "../config.js";
 import {
@@ -93,6 +94,7 @@ export const createResponseLanguageStore = (
   }
   let currentLanguage = language ?? normalizeResponseLanguage(fallback);
 
+  observability.setHealth("language", "ready");
   return {
     /**
      * Returns the current in-memory response language.
@@ -118,12 +120,19 @@ export const createResponseLanguageStore = (
       try {
         writeUtf8FileAtomically(resolvedFilePath, `${JSON.stringify({ language: normalized })}\n`);
       } catch (error) {
+        observability.setHealth("language", "degraded");
+        observability.log("error", "persistence.write", {
+          outcome: "error",
+          category: "operational",
+        });
         throw new Error(`Failed to persist response language to "${resolvedFilePath}".`, {
           cause: error,
         });
       }
 
       currentLanguage = normalized;
+      observability.setHealth("language", "ready");
+      observability.log("info", "persistence.write", { outcome: "success" });
     },
   };
 };
