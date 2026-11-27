@@ -1,3 +1,4 @@
+import { observability } from "./observability.js";
 import type tmi from "tmi.js";
 import type { ManagedQuestionCommand } from "../commands/question/index.js";
 
@@ -19,15 +20,17 @@ export const createShutdownHandler = (
   return async (signal: NodeJS.Signals): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log(`Received ${signal}; stopping new questions and draining the active request.`);
+    observability.log("info", "process.shutdown", { outcome: "cancelled" });
 
     try {
       questionCommand.stopAccepting();
       await questionCommand.waitForIdle();
-      console.log("Question processing stopped; disconnecting from Twitch.");
+      observability.log("debug", "process.shutdown", { outcome: "success" });
       await client.disconnect();
+      observability.setHealth("twitch", "stopped");
     } catch (error) {
-      console.error("Failed to disconnect cleanly from Twitch.");
+      observability.setHealth("twitch", "degraded");
+      observability.log("error", "process.shutdown", { outcome: "error", category: "operational" });
       process.exitCode = 1;
     }
   };

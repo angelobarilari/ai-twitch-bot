@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CommandContext } from "../../types/commands.js";
 import { withTestEnvironment } from "../../test-support/with-test-environment.js";
+import { observability } from "../../services/observability.js";
 
 let config: typeof import("../../config.js").config;
 let createQuestionCommand: typeof import("./index.js").createQuestionCommand;
@@ -25,6 +26,66 @@ before(async () => {
 
 after(() => {
   rmSync(stateDirectory, { recursive: true, force: true });
+});
+
+test("question telemetry records success, error, timeout, timings and sizes without chat content", async () => {
+  const before = observability.snapshot();
+  const lines: string[] = [];
+  const previous = {
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+    debug: console.debug,
+  };
+  for (const level of ["info", "warn", "error", "debug"] as const)
+    console[level] = (line) => {
+      lines.push(String(line));
+    };
+  try {
+    for (const request of [
+      async () => "private response",
+      async (): Promise<string> => {
+        throw new Error("private provider error");
+      },
+      async (): Promise<string> => new Promise(() => {}),
+    ]) {
+      const command = createQuestionCommand(request, () => 100_000, 10);
+      await command(createContext("viewer", "private question", []));
+      await command.waitForIdle();
+    }
+    const after = observability.snapshot();
+    for (const outcome of ["success", "error", "timeout"]) {
+      assert.equal(
+        (after.counters[`questions.${outcome}`] ?? 0) -
+          (before.counters[`questions.${outcome}`] ?? 0),
+        1,
+      );
+    }
+    assert.equal(
+      after.aggregates["questions.durationMs"]!.count -
+        (before.aggregates["questions.durationMs"]?.count ?? 0),
+      3,
+    );
+    assert.equal(
+      after.aggregates["answers.characters"]!.total -
+        (before.aggregates["answers.characters"]?.total ?? 0),
+      16,
+    );
+    assert.equal(
+      after.aggregates["queue.waitMs"]!.count - (before.aggregates["queue.waitMs"]?.count ?? 0),
+      3,
+    );
+    assert.deepEqual(
+      lines
+        .map((line) => JSON.parse(line))
+        .filter((record) => record.event === "question.completed")
+        .map((record) => record.outcome),
+      ["success", "error", "timeout"],
+    );
+    assert.ok(!lines.join("").includes("private"));
+  } finally {
+    Object.assign(console, previous);
+  }
 });
 
 const createContext = (username: string, text: string, replies: string[]): CommandContext => ({
@@ -243,8 +304,7 @@ test("questionCommand observes processing failures when the queue notification f
     assert.deepEqual(unhandledRejections, []);
     assert.ok(
       loggedErrors.some(
-        (entry) =>
-          entry[0] === "Failed to process a queued question after its queue notification failed:",
+        (entry) => JSON.parse(String(entry[0])).event === "queue.notification.failed",
       ),
     );
   } finally {

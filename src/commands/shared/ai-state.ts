@@ -1,3 +1,4 @@
+import { observability } from "../../services/observability.js";
 import "dotenv/config";
 import { join, resolve } from "node:path";
 import {
@@ -80,6 +81,7 @@ export const createAiStateStore = (
   }
   let currentEnabled = enabled ?? true;
 
+  observability.setHealth("aiState", "ready");
   return {
     /**
      * Returns the current in-memory AI enabled state.
@@ -98,10 +100,17 @@ export const createAiStateStore = (
       try {
         writeUtf8FileAtomically(resolvedFilePath, `${JSON.stringify({ enabled: value })}\n`);
       } catch (error) {
+        observability.setHealth("aiState", "degraded");
+        observability.log("error", "persistence.write", {
+          outcome: "error",
+          category: "operational",
+        });
         throw new Error(`Failed to persist AI state to "${resolvedFilePath}".`, { cause: error });
       }
 
       currentEnabled = value;
+      observability.setHealth("aiState", "ready");
+      observability.log("info", "persistence.write", { outcome: "success" });
     },
   };
 };

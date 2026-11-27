@@ -151,7 +151,10 @@ test("viewers can check whether AI responses are enabled with !status", async ()
   await handleMessage("test_channel", { username: "viewer" }, "!status", false);
   setAiEnabled(true);
 
-  assert.deepEqual(replies, ["The AI is enabled.", "The AI is disabled."]);
+  assert.deepEqual(replies, [
+    "The AI is enabled. Twitch: unknown; Gemini: unknown; persistence: ready/ready; queue: idle, 0 waiting.",
+    "The AI is disabled. Twitch: unknown; Gemini: unknown; persistence: ready/ready; queue: idle, 0 waiting.",
+  ]);
 });
 
 test("viewers can set and reset the channel-wide response language", async () => {
@@ -437,8 +440,8 @@ test("question flow contains Twitch reply failures and remains usable", async ()
 
     assert.deepEqual(replies, ["A fake answer."]);
     assert.deepEqual(
-      loggedErrors.map((entry) => entry[0]),
-      ["Error while querying the AI:", "Failed to handle Twitch chat command."],
+      loggedErrors.map((entry) => JSON.parse(String(entry[0])).event),
+      ["question.completed", "command.completed"],
     );
     assert.ok(loggedErrors.every((entry) => entry.length === 1));
   } finally {
@@ -461,7 +464,11 @@ test("message handler logs reply failures without rejecting the event handler", 
   try {
     await createMessageHandler(client)("test_channel", { username: "viewer" }, "!help", false);
 
-    assert.deepEqual(loggedErrors, [["Failed to handle Twitch chat command."]]);
+    assert.equal(loggedErrors.length, 1);
+    const record = JSON.parse(String(loggedErrors[0]?.[0]));
+    assert.equal(record.event, "command.completed");
+    assert.equal(record.outcome, "error");
+    assert.equal(record.command, "help");
   } finally {
     console.error = previousConsoleError;
   }

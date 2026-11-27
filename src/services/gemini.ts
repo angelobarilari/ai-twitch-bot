@@ -1,3 +1,4 @@
+import { observability } from "./observability.js";
 import { config } from "../config.js";
 import { getResponseLanguage } from "./response-language.js";
 
@@ -177,7 +178,7 @@ export const createGeminiRequester = (
             retry = isRetryableStatus(response.status) && attempt < maxRetries;
             if (!retry) return null;
           } else {
-            status = undefined;
+            status = response.status;
             let data: unknown;
             try {
               data = await response.json();
@@ -303,16 +304,16 @@ export const createGeminiRequester = (
 
       return null;
     } finally {
-      const logEntry = JSON.stringify({
-        event: "gemini.request",
+      observability.increment(`gemini.${outcome}`);
+      observability.observe("gemini.durationMs", performance.now() - startedAt);
+      if (outcome !== "cancelled")
+        observability.setHealth("gemini", outcome === "success" ? "ready" : "degraded");
+      observability.log(outcome === "success" ? "info" : "error", "gemini.request", {
         outcome,
         attempts: attempt + 1,
         durationMs: Math.round(performance.now() - startedAt),
         ...(status === undefined ? {} : { status }),
       });
-
-      if (outcome === "success") console.info(logEntry);
-      else console.error(logEntry);
     }
   };
 };

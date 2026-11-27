@@ -246,6 +246,18 @@ Run the bot from the project directory so relative state paths resolve consisten
 
 For a normal shutdown, send `SIGINT` (Ctrl+C where supported) or `SIGTERM`. The bot stops accepting questions, removes waiting questions, waits for active processing within its timeout, and disconnects from Twitch. Let shutdown finish before restarting or backing up state files.
 
+## Structured logs, metrics, and health
+
+Every operational record is a JSON line with `timestamp`, `level` (`debug`, `info`, `warn`, `error`), and a stable `event`. Only allowlisted numeric and enumerated metadata is emitted: chat text, usernames, channel names, provider payloads, exception messages, paths, and credentials are excluded. Collect stdout and stderr together to retain every severity.
+
+Stable events include `process.startup`, `process.health`, `process.shutdown`, `twitch.state`, `command.completed`, `question.queued`, `question.completed`, `question.rejected`, `queue.expired`, `queue.cleared`, `queue.notification.failed`, `gemini.request`, `persistence.write`, `admin.ai.changed`, and `settings.language.changed`. A successful command completion means the handler returned; inspect `question.completed` for the answer delivery outcome. Errors carry an operational category where known; router `TypeError` and `ReferenceError` failures are classified as bugs. No raw exception is serialized.
+
+`process.startup` reports safe queue, timeout, retry, and text limits. Every 60 seconds, `process.health` reports uptime, the AI switch, independent Twitch/Gemini/AI-state/language health, live queue activity and waiting count, counters, aggregate count/total/max/mean measurements, and question success/timeout/error fractions (zero before observations). Metrics stay in memory and reset on restart; there are no per-user labels or retained samples. Counters cover incoming non-self messages, commands by known type and outcome, command/question cooldowns, accepted and completed questions, queue expirations, Gemini outcomes, and reconnection cycles after an established connection. Aggregates cover queue wait, question and Gemini duration, and Unicode answer length after successful delivery. Non-success/non-timeout completions are included in the error fraction.
+
+`!status` reports the AI switch, Twitch, Gemini, both persistence components, and current queue state. `unknown` means no observation yet; `ready` means the most recent observed operation succeeded; `degraded` means the last operation failed; `stopped` means shutdown finished. These are observations, not live API probes: Gemini stays unknown until the first request and persistence reflects successful startup reads or the most recent write. Queue state is read live. This bot is a CLI chat process, so no HTTP healthcheck listener is opened; add a loopback-only endpoint if it is deployed as a service.
+
+For a timeout, compare `gemini.request` (`outcome`, `attempts`, `status`, `durationMs`) with `question.completed` and `queue.expired`: provider failure, active deadline, and queue waiting deadline are different paths. HTTP 401/403 requires credential/configuration correction; HTTP 429 and 5xx may use bounded retries. `twitch.state` only records transitions, suppressing repeated disconnected/reconnect notifications within one outage. Check the Twitch health and reconnection counter to distinguish an outage from a slow provider. `persistence.write` errors mark only the affected store degraded; check storage permissions, free space, and the configured state path, then retry the setting change to verify recovery. The previous in-memory setting remains active after a failed write.
+
 ## Testing
 
 Run the project tests with:
@@ -253,6 +265,16 @@ Run the project tests with:
 ```bash
 npm test
 ```
+
+`npm test` discovers every `src/**/*.test.ts` recursively with Node APIs, avoiding shell glob differences on Windows and Linux. It ignores symlinks, `dist/`, and `node_modules/`. Each test file runs in its own Node test process with TypeScript support; any failure produces a nonzero exit status. CI runs the same suite on Windows and Linux.
+
+```bash
+npm test -- src/services/gemini.test.ts
+npm run test:watch
+npm run test:watch -- src/services/gemini.test.ts
+```
+
+Watch mode rediscovers tests after source changes, including newly created nested tests. With explicit files, it keeps that selection. Stop with Ctrl+C.
 
 The automated suite covers startup configuration validation, including operational maxima; AI-state and language persistence, legacy-file migration, atomic replacement and interrupted writes; command-specific behavior and router dispatch; queue limits, timeouts, late Twitch reply failures and shutdown; Gemini retries, cancellation and malformed responses; and utility edge cases. Tests use fakes rather than real Twitch or Gemini network requests. Direct tests exist for every command, including viewer and moderator paths where applicable.
 
