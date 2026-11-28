@@ -1,3 +1,5 @@
+import { createConversationContext, type ConversationContext } from "./ai/context.js";
+import { createClearContextCommand } from "./commands/clearcontext/index.js";
 import type { AppConfig } from "./config/validate.js";
 import type { AiProvider } from "./ai/types.js";
 import type { StateStore } from "./stores/types.js";
@@ -36,6 +38,7 @@ export const createApp = (options: {
   telemetry?: Observability;
   now?: () => number;
   reportHealth?: typeof startHealthReporting;
+  context?: ConversationContext;
 }) => {
   const { config, client, aiState, language } = options;
   const telemetry = options.telemetry ?? createObservability();
@@ -50,7 +53,9 @@ export const createApp = (options: {
       now: options.now,
       telemetry,
     });
+  const context = options.context ?? createConversationContext({ now: options.now });
   const question = createQuestionHandler({
+    context,
     config,
     provider,
     state: aiState,
@@ -59,6 +64,7 @@ export const createApp = (options: {
     now: options.now,
   });
   const commands = new Map<string, CommandHandler>([
+    ["clearcontext", createClearContextCommand(context)],
     ["ai", createAiCommand(aiState, telemetry)],
     ["language", createLanguageCommand(language, telemetry)],
     ["queue", createQueueCommand(queue)],
@@ -121,6 +127,7 @@ export const createApp = (options: {
       queue.stopAccepting();
       if (startup) await startup.catch(() => {});
       await queue.waitForIdle();
+      context.clearAll();
       try {
         await connection.disconnect();
         telemetry.info("process.shutdown", { outcome: "success" });

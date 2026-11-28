@@ -342,15 +342,17 @@ Os contratos e as fábricas da aplicação não iniciam conexão, leem `.env` ou
 
 **Prioridade:** média.
 
+**Status:** em implementação na branch `feature/phase-5-engagement`, com entregas incrementais e cobertura mínima de 90%. Consulte [FEATURES.md](./FEATURES.md).
+
 ## Entregaveis iniciais
 
 ### Contexto limitado
 
-- [ ] Criar conversa curta por usuário.
-- [ ] Limitar quantidade de mensagens e tempo de vida.
-- [ ] Permitir `!clearcontext`.
-- [ ] Não compartilhar contexto entre usuários.
-- [ ] Manter contexto apenas em memória.
+- [x] Criar conversa curta por usuário.
+- [x] Limitar quantidade de mensagens e tempo de vida.
+- [x] Permitir `!clearcontext`.
+- [x] Não compartilhar contexto entre usuários.
+- [x] Manter contexto apenas em memória.
 
 ### Modos de resposta
 

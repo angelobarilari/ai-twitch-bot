@@ -153,6 +153,7 @@ export const createGeminiProvider = (
                     language,
                     config.maxAnswerLength,
                     requestOptions.concise,
+                    requestOptions.history,
                   ),
                 ),
               },

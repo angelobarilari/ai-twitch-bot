@@ -27,6 +27,7 @@ const commands = new Set([
   "ping",
   "queue",
   "question",
+  "clearcontext",
   "status",
 ]);
 

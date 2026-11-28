@@ -16,6 +16,7 @@ const knownCommands = new Set([
   "ping",
   "queue",
   "question",
+  "clearcontext",
   "status",
 ]);
 export type { MessageHandler, ParsedCommand } from "../types/commands.js";

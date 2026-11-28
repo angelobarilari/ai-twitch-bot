@@ -1,3 +1,5 @@
+import type { ConversationContext } from "../../ai/context.js";
+import { conversationKey } from "../shared/conversation-key.js";
 import type { AppConfig } from "../../config/validate.js";
 import type { AiProvider } from "../../ai/types.js";
 import type { StateStore } from "../../stores/types.js";
@@ -35,6 +37,7 @@ export const createQuestionHandler = (options: {
   now?: () => number;
   queue?: QuestionQueue;
   limiter?: RateLimiter;
+  context?: ConversationContext;
 }): ManagedQuestionCommand => {
   const { config, provider, state, telemetry: observability } = options;
   const now = options.now ?? Date.now;
@@ -154,8 +157,13 @@ export const createQuestionHandler = (options: {
     }
     lastCommandAt.set(userKey, currentTime);
     lastGlobalCommandAt = currentTime;
+    const key = conversationKey(context.channel, tags);
+    const session = key ? options.context?.begin(key) : undefined;
     const ticket = queue.enqueue({
-      run: (signal) => answerQuestion(question, reply, signal),
+      run: (signal) =>
+        answerQuestion(question, reply, signal, { history: session?.read() }, (answer) =>
+          session?.append(question, answer),
+        ),
       expired: () => reply("Your question expired while waiting in the queue."),
       removed: (reason) =>
         reply(

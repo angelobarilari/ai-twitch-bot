@@ -1,9 +1,11 @@
+import type { ConversationTurn } from "../types.js";
 /**
  * Builds trusted system instructions separately from untrusted viewer text.
  * @param question Untrusted viewer question.
  * @param language Selected language from the application store.
  * @param maxAnswerLength Character budget for the answer.
  * @param concise Whether a shorter complete answer is required.
+ * @param history Bounded prior exchanges; always untrusted conversation content.
  * @returns Gemini request body, without credentials.
  */
 export const buildGeminiBody = (
@@ -11,6 +13,7 @@ export const buildGeminiBody = (
   language: string,
   maxAnswerLength: number,
   concise = false,
+  history: readonly ConversationTurn[] = [],
 ) => {
   const languageInstruction =
     language.toLowerCase() === "auto"
@@ -24,7 +27,13 @@ export const buildGeminiBody = (
         },
       ],
     },
-    contents: [{ role: "user", parts: [{ text: question }] }],
+    contents: [
+      ...history.flatMap((turn) => [
+        { role: "user", parts: [{ text: turn.question }] },
+        { role: "model", parts: [{ text: turn.answer }] },
+      ]),
+      { role: "user", parts: [{ text: question }] },
+    ],
     generationConfig: {
       maxOutputTokens: Math.max(1, Math.ceil(maxAnswerLength / 3)),
       temperature: 0.4,
