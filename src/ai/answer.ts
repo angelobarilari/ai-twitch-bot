@@ -1,4 +1,4 @@
-import type { AiProvider } from "./types.js";
+import type { AskOptions, AiProvider } from "./types.js";
 import type { AppConfig } from "../config/validate.js";
 import type { Observability } from "../observability/index.js";
 import type { QuestionOutcome } from "../queue/question-queue.js";
@@ -24,15 +24,23 @@ export const createAnswerHandler = (
    * @param question Question text to send to Gemini.
    * @param reply Reply function for the originating chat channel.
    * @param signal Cancellation signal for the active question deadline.
+   * @param requestOptions Trusted generation options and bounded untrusted history.
+   * @param onDelivered Callback after a safe answer is fully delivered.
    * @returns A promise that resolves after the answer or an error message is sent.
    */
   return async (
     question: string,
     reply: (message: string) => Promise<unknown>,
     signal: AbortSignal,
+    requestOptions: AskOptions = {},
+    onDelivered?: (answer: string) => void,
   ): Promise<QuestionOutcome> => {
+    const limit = Math.min(
+      config.maxAnswerLength,
+      requestOptions.maxAnswerLength ?? config.maxAnswerLength,
+    );
     try {
-      const generated = await provider.ask(question, { signal });
+      const generated = await provider.ask(question, { ...requestOptions, signal });
       let answer = normalizeChatText(generated ?? "");
       if (signal.aborted) return "cancelled";
       if (!answer || !isSafeChatText(answer, [config.apiKey, config.token])) {
@@ -40,8 +48,10 @@ export const createAnswerHandler = (
         return generated === null ? "error" : "unsafe";
       }
 
-      if (Array.from(answer).length > config.maxAnswerLength) {
-        answer = normalizeChatText((await provider.ask(question, { signal, concise: true })) ?? "");
+      if (Array.from(answer).length > limit) {
+        answer = normalizeChatText(
+          (await provider.ask(question, { ...requestOptions, signal, concise: true })) ?? "",
+        );
         if (signal.aborted) return "cancelled";
       }
 
@@ -50,7 +60,7 @@ export const createAnswerHandler = (
         return "unsafe";
       }
 
-      if (Array.from(answer).length > config.maxAnswerLength) {
+      if (Array.from(answer).length > limit) {
         await reply(
           "I could not provide a complete answer within the chat limit. Please try a shorter question.",
         );
@@ -61,6 +71,8 @@ export const createAnswerHandler = (
         if (signal.aborted) return "cancelled";
         await reply(chunk);
       }
+      if (signal.aborted) return "cancelled";
+      onDelivered?.(answer);
       observability.observe("answers.characters", Array.from(answer).length);
       return "success";
     } catch (error) {

@@ -4,6 +4,7 @@
 - [Convenções](./PROJECT_CONVENTIONS.md): arquitetura, código, testes e fluxo Git.
 - [Segurança](./SECURITY.md): limites, permissões, credenciais e privacidade.
 - [Qualidade e cobertura](./QUALITY.md): comandos, relatórios e interpretação das métricas.
+- [Funcionalidades da fase 5](./FEATURES.md): contexto, modos, comandos educativos, personalidade e memória opt-in.
 - [README principal](../README.md): instalação, configuração, comandos e operação.
 
 O `README.md` da raiz permanece como porta de entrada do repositório. A pasta `docs/` contém documentação mantida e versionada. Instruções de agentes e configurações de workflows permanecem em `.github/`, onde as ferramentas esperam encontrá-las.

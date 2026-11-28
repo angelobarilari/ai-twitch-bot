@@ -45,3 +45,11 @@ gitleaks git --redact --no-banner --log-opts="--all" .
 ```
 
 History scanning covers committed content. Inspect staged changes before every commit; local ignored files are deliberately outside that history scan.
+
+## Phase 5 trust boundaries
+
+All AI commands share the original queue, access policy, cooldowns, safety filters, and response limits. New task, mode, and persona instructions are fixed server-side selections. Conversation history and channel facts are untrusted data; neither is promoted to a system instruction. Context is private to one viewer and channel, bounded, volatile, and expiring.
+
+Channel memory is disabled by default and requires explicit moderator/broadcaster opt-in. Only consistent server-supplied identities can change modes or register/edit/delete facts. Facts are public channel reference data with mandatory TTLs, finite capacity, content checks, and atomic local persistence. Numeric actor IDs are retained for administrative attribution; audit events exclude fact text, fact keys, usernames, credentials, questions, and answers. Mode changes and memory changes use the separate administrative command budget.
+
+Editing, deleting, or disabling channel memory invalidates existing context snapshots. Reference-based turns cannot extend the lifetime of an expired fact. A prompt already sent to an external provider cannot be recalled. Personality files accept only a fixed profile selector, never arbitrary safety or system instructions. See [FEATURES.md](./FEATURES.md) for limits, commands, persistence behavior, and privacy details.

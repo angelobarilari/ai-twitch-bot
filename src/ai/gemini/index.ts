@@ -151,8 +151,13 @@ export const createGeminiProvider = (
                   buildGeminiBody(
                     question,
                     language,
-                    config.maxAnswerLength,
+                    Math.min(
+                      config.maxAnswerLength,
+                      requestOptions.maxAnswerLength ?? config.maxAnswerLength,
+                    ),
                     requestOptions.concise,
+                    requestOptions.history,
+                    requestOptions,
                   ),
                 ),
               },

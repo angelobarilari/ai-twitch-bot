@@ -1,3 +1,13 @@
+import { createChannelMemory, type MemorySnapshot } from "./ai/channel-memory.js";
+import { createMemoryCommand } from "./commands/memory/index.js";
+import { createExplainCommand } from "./commands/explain/index.js";
+import { createQuizCommand } from "./commands/quiz/index.js";
+import { createDailyfactCommand } from "./commands/dailyfact/index.js";
+import { createSummarizeCommand } from "./commands/summarize/index.js";
+import { responseLimit, type Persona } from "./ai/profiles.js";
+import { createModeCommand } from "./commands/mode/index.js";
+import { createConversationContext, type ConversationContext } from "./ai/context.js";
+import { createClearContextCommand } from "./commands/clearcontext/index.js";
 import type { AppConfig } from "./config/validate.js";
 import type { AiProvider } from "./ai/types.js";
 import type { StateStore } from "./stores/types.js";
@@ -36,6 +46,9 @@ export const createApp = (options: {
   telemetry?: Observability;
   now?: () => number;
   reportHealth?: typeof startHealthReporting;
+  context?: ConversationContext;
+  persona?: Persona;
+  memoryStore?: StateStore<MemorySnapshot>;
 }) => {
   const { config, client, aiState, language } = options;
   const telemetry = options.telemetry ?? createObservability();
@@ -50,7 +63,32 @@ export const createApp = (options: {
       now: options.now,
       telemetry,
     });
+  let mode = config.responseMode;
+  const modeStore = {
+    get: () => mode,
+    set: (value: typeof mode): void => {
+      mode = value;
+    },
+  };
+  const memory = createChannelMemory(config.channel, options.memoryStore, options.now, [
+    config.apiKey,
+    config.token,
+  ]);
+  const context = options.context ?? createConversationContext({ now: options.now });
   const question = createQuestionHandler({
+    context,
+    generation: (channel) => {
+      const facts = memory.list(channel);
+      return {
+        facts: facts.map((fact) => fact.text),
+        contextExpiresAt: facts.length
+          ? Math.min(...facts.map((fact) => fact.expiresAt))
+          : undefined,
+        mode,
+        persona: options.persona ?? config.persona,
+        maxAnswerLength: responseLimit(mode, config.maxAnswerLength),
+      };
+    },
     config,
     provider,
     state: aiState,
@@ -59,12 +97,25 @@ export const createApp = (options: {
     now: options.now,
   });
   const commands = new Map<string, CommandHandler>([
+    ["memory", createMemoryCommand(memory, telemetry, context.clearAll)],
+    ["mode", createModeCommand(modeStore, telemetry)],
+    ["clearcontext", createClearContextCommand(context)],
     ["ai", createAiCommand(aiState, telemetry)],
     ["language", createLanguageCommand(language, telemetry)],
     ["queue", createQueueCommand(queue)],
     ["status", createStatusCommand(aiState, queue, telemetry)],
     ["question", question],
-    ["help", createHelpCommand(config)],
+    ["explain", createExplainCommand(question)],
+    ["quiz", createQuizCommand(question)],
+    ["dailyfact", createDailyfactCommand(question)],
+    ["summarize", createSummarizeCommand(question)],
+    [
+      "help",
+      createHelpCommand(
+        config,
+        "Also: !explain <term>; !quiz; !dailyfact; !summarize [text]; !clearcontext. !mode [concise|detailed|educational] (changes: moderators). !memory list [page]; !memory on|off|add|edit|remove (changes: moderators).",
+      ),
+    ],
     ["about", aboutCommand],
     ["ping", pingCommand],
   ]);
@@ -121,6 +172,7 @@ export const createApp = (options: {
       queue.stopAccepting();
       if (startup) await startup.catch(() => {});
       await queue.waitForIdle();
+      context.clearAll();
       try {
         await connection.disconnect();
         telemetry.info("process.shutdown", { outcome: "success" });
