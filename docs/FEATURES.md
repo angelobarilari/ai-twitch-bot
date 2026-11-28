@@ -15,3 +15,12 @@ The shared question queue, access policy, abuse limits, input/output filters, de
 `!mode` reports the current mode. Only moderators or the broadcaster with consistent Twitch identity tags can use `!mode concise`, `!mode detailed`, or `!mode educational`. Changes are in memory and reset to `AI_RESPONSE_MODE` on restart (default: `concise`). All modes share the same queue, access policy, cooldowns, and safety checks. Mode budgets are 210, 840, and 630 Unicode characters respectively, always capped by `MAX_ANSWER_LENGTH`; an oversized result receives at most one concise retry.
 
 `BOT_PERSONA` selects `assistant` (default), `tutor`, `commentator`, or `technical` at startup. An optional `BOT_PERSONA_FILE` overrides that selector using a JSON object containing exactly `{"profile":"tutor"}` (or another supported profile). Files are limited to 4 KiB, validated before connecting, and may not contain free-form instructions or additional fields. There is no chat command to change personality. Profiles add trusted style instructions while preserving the provider's safety instructions; chat and history remain untrusted input.
+
+## Educational commands
+
+- `!explain <term>` explains a supplied term with a short example.
+- `!quiz` requests one general-knowledge question with its answer.
+- `!dailyfact` requests one timeless educational fact on demand; it is not a live news lookup or a scheduled broadcast.
+- `!summarize [text]` summarizes supplied text, or only the caller's current-channel recent conversation when no text is supplied. Without history, it returns a short notice without calling the provider.
+
+All four commands delegate to the same question handler, sharing its global and per-user cooldowns, abuse budget, role policy, capacity, cancellation, safety filters, and response-mode limits. Task instructions are fixed system-side selections; viewer text stays in the untrusted user role. Generated educational answers are not externally fact-checked. No command reads arbitrary channel chat or another viewer's context.

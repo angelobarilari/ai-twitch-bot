@@ -162,14 +162,20 @@ export const createQuestionHandler = (options: {
     const key = conversationKey(context.channel, tags);
     const session = key ? options.context?.begin(key) : undefined;
     const ticket = queue.enqueue({
-      run: (signal) =>
-        answerQuestion(
+      run: async (signal) => {
+        const history = session?.read();
+        if (context.requireHistory && !history?.length) {
+          await reply("There is no recent conversation to summarize.");
+          return "cancelled";
+        }
+        return answerQuestion(
           question,
           reply,
           signal,
-          { ...options.generation?.(), history: session?.read() },
+          { ...options.generation?.(), task: context.task, history },
           (answer) => session?.append(question, answer),
-        ),
+        );
+      },
       expired: () => reply("Your question expired while waiting in the queue."),
       removed: (reason) =>
         reply(

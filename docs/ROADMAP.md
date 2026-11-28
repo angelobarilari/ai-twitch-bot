@@ -364,10 +364,10 @@ Os contratos e as fábricas da aplicação não iniciam conexão, leem `.env` ou
 
 ### Comandos educativos
 
-- [ ] `!explain <termo>`;
-- [ ] `!quiz`;
-- [ ] `!dailyfact`;
-- [ ] `!summarize`;
+- [x] `!explain <termo>`;
+- [x] `!quiz`;
+- [x] `!dailyfact`;
+- [x] `!summarize`;
 
 ### Memória opt-in do canal
 

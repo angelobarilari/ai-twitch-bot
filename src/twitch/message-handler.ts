@@ -18,6 +18,10 @@ const knownCommands = new Set([
   "question",
   "clearcontext",
   "mode",
+  "explain",
+  "quiz",
+  "dailyfact",
+  "summarize",
   "status",
 ]);
 export type { MessageHandler, ParsedCommand } from "../types/commands.js";

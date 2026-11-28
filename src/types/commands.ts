@@ -1,6 +1,9 @@
+import type { EducationalTask } from "../ai/types.js";
 import type { ChatUserstate } from "tmi.js";
 
 export type CommandContext = {
+  task?: EducationalTask;
+  requireHistory?: boolean;
   channel: string;
   tags: ChatUserstate;
   args: string[];

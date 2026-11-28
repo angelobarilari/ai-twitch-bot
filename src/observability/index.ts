@@ -29,6 +29,10 @@ const commands = new Set([
   "question",
   "clearcontext",
   "mode",
+  "explain",
+  "quiz",
+  "dailyfact",
+  "summarize",
   "status",
 ]);
 

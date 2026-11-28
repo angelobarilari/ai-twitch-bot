@@ -1,3 +1,7 @@
+import { createExplainCommand } from "./commands/explain/index.js";
+import { createQuizCommand } from "./commands/quiz/index.js";
+import { createDailyfactCommand } from "./commands/dailyfact/index.js";
+import { createSummarizeCommand } from "./commands/summarize/index.js";
 import { responseLimit, type Persona } from "./ai/profiles.js";
 import { createModeCommand } from "./commands/mode/index.js";
 import { createConversationContext, type ConversationContext } from "./ai/context.js";
@@ -86,6 +90,10 @@ export const createApp = (options: {
     ["queue", createQueueCommand(queue)],
     ["status", createStatusCommand(aiState, queue, telemetry)],
     ["question", question],
+    ["explain", createExplainCommand(question)],
+    ["quiz", createQuizCommand(question)],
+    ["dailyfact", createDailyfactCommand(question)],
+    ["summarize", createSummarizeCommand(question)],
     ["help", createHelpCommand(config)],
     ["about", aboutCommand],
     ["ping", pingCommand],
