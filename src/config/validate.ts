@@ -1,3 +1,4 @@
+import { isPersona, isResponseMode, type Persona, type ResponseMode } from "../ai/profiles.js";
 import { isValidResponseLanguage } from "../utils/is-valid-response-language/index.js";
 
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
@@ -6,6 +7,9 @@ const MAX_ANSWER_LENGTH_CHARS = 2_000;
 const MAX_PENDING_QUESTIONS_LIMIT = 100;
 
 export type AppConfig = {
+  responseMode: ResponseMode;
+  persona: Persona;
+  personaFile?: string;
   username: string;
   token: string;
   channel: string;
@@ -150,6 +154,12 @@ const parseCooldownMilliseconds = (
  * @throws If required variables or setting values are invalid.
  */
 export const loadConfig = (environment: NodeJS.ProcessEnv): AppConfig => {
+  const responseMode = environment.AI_RESPONSE_MODE?.trim() || "concise";
+  const persona = environment.BOT_PERSONA?.trim() || "assistant";
+  if (!isResponseMode(responseMode))
+    throw new Error("AI_RESPONSE_MODE must be concise, detailed, or educational.");
+  if (!isPersona(persona))
+    throw new Error("BOT_PERSONA must be assistant, tutor, commentator, or technical.");
   const questionAccess = environment.QUESTION_ACCESS?.trim() || "everyone";
   if (!["everyone", "known", "subscriber", "moderator", "broadcaster"].includes(questionAccess)) {
     throw new Error(
@@ -239,6 +249,9 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): AppConfig => {
   }
 
   return {
+    responseMode,
+    persona,
+    personaFile: environment.BOT_PERSONA_FILE?.trim() || undefined,
     questionAccess: questionAccess as AppConfig["questionAccess"],
     questionWindowMs: parsePositiveSafeInteger(
       "QUESTION_WINDOW_MS",

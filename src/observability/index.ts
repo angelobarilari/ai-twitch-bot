@@ -28,6 +28,7 @@ const commands = new Set([
   "queue",
   "question",
   "clearcontext",
+  "mode",
   "status",
 ]);
 
@@ -66,6 +67,7 @@ const events = new Set([
   "persistence.write",
   "admin.ai.changed",
   "settings.language.changed",
+  "settings.mode.changed",
 ]);
 
 /**

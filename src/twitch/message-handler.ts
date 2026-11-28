@@ -17,6 +17,7 @@ const knownCommands = new Set([
   "queue",
   "question",
   "clearcontext",
+  "mode",
   "status",
 ]);
 export type { MessageHandler, ParsedCommand } from "../types/commands.js";
@@ -154,7 +155,7 @@ export const createMessageHandler = (
     if (message.length > 2_000) return;
     const parsed = parseCommand(message);
     if (!parsed || !commandRegistry.has(parsed.name)) return;
-    const admin = (parsed.name === "ai" || parsed.name === "queue") && isModerator(tags, channel);
+    const admin = ["ai", "queue", "mode"].includes(parsed.name) && isModerator(tags, channel);
     if (now() >= windowStarted + 10_000) {
       windowStarted = now();
       ordinaryCount = 0;

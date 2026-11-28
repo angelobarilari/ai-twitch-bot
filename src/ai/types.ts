@@ -1,6 +1,10 @@
+import type { Persona, ResponseMode } from "./profiles.js";
 export type AskOptions = {
   signal?: AbortSignal;
   concise?: boolean;
+  mode?: ResponseMode;
+  persona?: Persona;
+  maxAnswerLength?: number;
   history?: readonly ConversationTurn[];
 };
 

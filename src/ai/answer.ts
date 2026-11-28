@@ -35,6 +35,10 @@ export const createAnswerHandler = (
     requestOptions: AskOptions = {},
     onDelivered?: (answer: string) => void,
   ): Promise<QuestionOutcome> => {
+    const limit = Math.min(
+      config.maxAnswerLength,
+      requestOptions.maxAnswerLength ?? config.maxAnswerLength,
+    );
     try {
       const generated = await provider.ask(question, { ...requestOptions, signal });
       let answer = normalizeChatText(generated ?? "");
@@ -44,7 +48,7 @@ export const createAnswerHandler = (
         return generated === null ? "error" : "unsafe";
       }
 
-      if (Array.from(answer).length > config.maxAnswerLength) {
+      if (Array.from(answer).length > limit) {
         answer = normalizeChatText(
           (await provider.ask(question, { ...requestOptions, signal, concise: true })) ?? "",
         );
@@ -56,7 +60,7 @@ export const createAnswerHandler = (
         return "unsafe";
       }
 
-      if (Array.from(answer).length > config.maxAnswerLength) {
+      if (Array.from(answer).length > limit) {
         await reply(
           "I could not provide a complete answer within the chat limit. Please try a shorter question.",
         );

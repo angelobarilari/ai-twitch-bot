@@ -356,11 +356,11 @@ Os contratos e as fábricas da aplicação não iniciam conexão, leem `.env` ou
 
 ### Modos de resposta
 
-- [ ] Criar modo `concise`.
-- [ ] Criar modo `detailed`.
-- [ ] Criar modo `educational`.
-- [ ] Permitir alteração apenas por moderadores.
-- [ ] Aplicar limites de tamanho por modo.
+- [x] Criar modo `concise`.
+- [x] Criar modo `detailed`.
+- [x] Criar modo `educational`.
+- [x] Permitir alteração apenas por moderadores.
+- [x] Aplicar limites de tamanho por modo.
 
 ### Comandos educativos
 
@@ -379,10 +379,10 @@ Os contratos e as fábricas da aplicação não iniciam conexão, leem `.env` ou
 
 ### Personalidade
 
-- [ ] Criar perfis como tutor, comentarista ou assistente técnico.
-- [ ] Validar arquivos de configuração de personalidade.
-- [ ] Impedir alteração de regras de segurança por prompt.
-- [ ] Permitir configuração fixa na inicialização.
+- [x] Criar perfis como tutor, comentarista ou assistente técnico.
+- [x] Validar arquivos de configuração de personalidade.
+- [x] Impedir alteração de regras de segurança por prompt.
+- [x] Permitir configuração fixa na inicialização.
 
 ## Criterios de conclusão
 

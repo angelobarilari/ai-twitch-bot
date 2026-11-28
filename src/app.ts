@@ -1,3 +1,5 @@
+import { responseLimit, type Persona } from "./ai/profiles.js";
+import { createModeCommand } from "./commands/mode/index.js";
 import { createConversationContext, type ConversationContext } from "./ai/context.js";
 import { createClearContextCommand } from "./commands/clearcontext/index.js";
 import type { AppConfig } from "./config/validate.js";
@@ -39,6 +41,7 @@ export const createApp = (options: {
   now?: () => number;
   reportHealth?: typeof startHealthReporting;
   context?: ConversationContext;
+  persona?: Persona;
 }) => {
   const { config, client, aiState, language } = options;
   const telemetry = options.telemetry ?? createObservability();
@@ -53,9 +56,21 @@ export const createApp = (options: {
       now: options.now,
       telemetry,
     });
+  let mode = config.responseMode;
+  const modeStore = {
+    get: () => mode,
+    set: (value: typeof mode): void => {
+      mode = value;
+    },
+  };
   const context = options.context ?? createConversationContext({ now: options.now });
   const question = createQuestionHandler({
     context,
+    generation: () => ({
+      mode,
+      persona: options.persona ?? config.persona,
+      maxAnswerLength: responseLimit(mode, config.maxAnswerLength),
+    }),
     config,
     provider,
     state: aiState,
@@ -64,6 +79,7 @@ export const createApp = (options: {
     now: options.now,
   });
   const commands = new Map<string, CommandHandler>([
+    ["mode", createModeCommand(modeStore, telemetry)],
     ["clearcontext", createClearContextCommand(context)],
     ["ai", createAiCommand(aiState, telemetry)],
     ["language", createLanguageCommand(language, telemetry)],

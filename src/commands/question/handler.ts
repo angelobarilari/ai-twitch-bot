@@ -1,3 +1,4 @@
+import type { AskOptions } from "../../ai/types.js";
 import type { ConversationContext } from "../../ai/context.js";
 import { conversationKey } from "../shared/conversation-key.js";
 import type { AppConfig } from "../../config/validate.js";
@@ -38,6 +39,7 @@ export const createQuestionHandler = (options: {
   queue?: QuestionQueue;
   limiter?: RateLimiter;
   context?: ConversationContext;
+  generation?: () => AskOptions;
 }): ManagedQuestionCommand => {
   const { config, provider, state, telemetry: observability } = options;
   const now = options.now ?? Date.now;
@@ -161,8 +163,12 @@ export const createQuestionHandler = (options: {
     const session = key ? options.context?.begin(key) : undefined;
     const ticket = queue.enqueue({
       run: (signal) =>
-        answerQuestion(question, reply, signal, { history: session?.read() }, (answer) =>
-          session?.append(question, answer),
+        answerQuestion(
+          question,
+          reply,
+          signal,
+          { ...options.generation?.(), history: session?.read() },
+          (answer) => session?.append(question, answer),
         ),
       expired: () => reply("Your question expired while waiting in the queue."),
       removed: (reason) =>
