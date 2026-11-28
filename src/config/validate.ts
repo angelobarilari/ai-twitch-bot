@@ -10,6 +10,7 @@ export type AppConfig = {
   responseMode: ResponseMode;
   persona: Persona;
   personaFile?: string;
+  memoryFile: string;
   username: string;
   token: string;
   channel: string;
@@ -249,6 +250,7 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): AppConfig => {
   }
 
   return {
+    memoryFile: environment.CHANNEL_MEMORY_FILE?.trim() || ".data/channel-memory.json",
     responseMode,
     persona,
     personaFile: environment.BOT_PERSONA_FILE?.trim() || undefined,

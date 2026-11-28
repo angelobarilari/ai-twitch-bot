@@ -18,6 +18,7 @@ const knownCommands = new Set([
   "question",
   "clearcontext",
   "mode",
+  "memory",
   "explain",
   "quiz",
   "dailyfact",
@@ -159,7 +160,8 @@ export const createMessageHandler = (
     if (message.length > 2_000) return;
     const parsed = parseCommand(message);
     if (!parsed || !commandRegistry.has(parsed.name)) return;
-    const admin = ["ai", "queue", "mode"].includes(parsed.name) && isModerator(tags, channel);
+    const admin =
+      ["ai", "queue", "mode", "memory"].includes(parsed.name) && isModerator(tags, channel);
     if (now() >= windowStarted + 10_000) {
       windowStarted = now();
       ordinaryCount = 0;

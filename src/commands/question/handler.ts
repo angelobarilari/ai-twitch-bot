@@ -39,7 +39,7 @@ export const createQuestionHandler = (options: {
   queue?: QuestionQueue;
   limiter?: RateLimiter;
   context?: ConversationContext;
-  generation?: () => AskOptions;
+  generation?: (channel: string) => AskOptions;
 }): ManagedQuestionCommand => {
   const { config, provider, state, telemetry: observability } = options;
   const now = options.now ?? Date.now;
@@ -168,12 +168,13 @@ export const createQuestionHandler = (options: {
           await reply("There is no recent conversation to summarize.");
           return "cancelled";
         }
+        const generation = options.generation?.(context.channel);
         return answerQuestion(
           question,
           reply,
           signal,
-          { ...options.generation?.(), task: context.task, history },
-          (answer) => session?.append(question, answer),
+          { ...generation, task: context.task, history },
+          (answer) => session?.append(question, answer, generation?.contextExpiresAt),
         );
       },
       expired: () => reply("Your question expired while waiting in the queue."),

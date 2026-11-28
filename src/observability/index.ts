@@ -2,6 +2,8 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
 export type HealthState = "unknown" | "ready" | "degraded" | "stopped";
 export type Metadata = {
   outcome?: string;
+  actorId?: string;
+  action?: string;
   command?: string;
   durationMs?: number;
   status?: number;
@@ -29,6 +31,7 @@ const commands = new Set([
   "question",
   "clearcontext",
   "mode",
+  "memory",
   "explain",
   "quiz",
   "dailyfact",
@@ -72,6 +75,7 @@ const events = new Set([
   "admin.ai.changed",
   "settings.language.changed",
   "settings.mode.changed",
+  "memory.changed",
 ]);
 
 /**
@@ -129,6 +133,10 @@ export const createObservability = (sink?: (level: LogLevel, line: string) => vo
     }
     if (metadata.outcome && outcomes.has(metadata.outcome)) safe.outcome = metadata.outcome;
     if (metadata.command && commands.has(metadata.command)) safe.command = metadata.command;
+    if (metadata.actorId && /^[1-9]\d{0,19}$/.test(metadata.actorId))
+      safe.actorId = metadata.actorId;
+    if (metadata.action && ["on", "off", "add", "edit", "remove"].includes(metadata.action))
+      safe.action = metadata.action;
     if (typeof metadata.enabled === "boolean") safe.enabled = metadata.enabled;
     if (metadata.category === "bug" || metadata.category === "operational")
       safe.category = metadata.category;

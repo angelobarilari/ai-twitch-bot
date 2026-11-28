@@ -66,3 +66,16 @@ test("old turns expire even when later exchanges keep a session alive", () => {
   time = 11;
   assert.deepEqual(session.read(), [{ question: "new", answer: "answer" }]);
 });
+
+test("answers based on temporary facts cannot retain those facts past their original expiry", () => {
+  let time = 0;
+  const context = createConversationContext({ now: () => time, ttlMs: 100 });
+  const session = context.begin("a");
+  session.append("question", "reference-based answer", 10);
+  assert.equal(session.read().length, 1);
+  time = 10;
+  assert.deepEqual(session.read(), []);
+  const fresh = context.begin("a");
+  fresh.append("late", "already expired", 9);
+  assert.deepEqual(fresh.read(), []);
+});

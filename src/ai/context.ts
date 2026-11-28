@@ -1,6 +1,6 @@
 import type { ConversationTurn } from "./types.js";
 
-type Entry = { turns: Array<ConversationTurn & { at: number }>; expiresAt: number };
+type Entry = { turns: Array<ConversationTurn & { expiresAt: number }>; expiresAt: number };
 export type ConversationContext = ReturnType<typeof createConversationContext>;
 
 /**
@@ -37,7 +37,7 @@ export const createConversationContext = (
   const prune = (): void => {
     for (const [key, entry] of entries) {
       if (now() >= entry.expiresAt) entries.delete(key);
-      else entry.turns = entry.turns.filter((turn) => now() < turn.at + ttlMs);
+      else entry.turns = entry.turns.filter((turn) => now() < turn.expiresAt);
     }
   };
   return {
@@ -55,10 +55,11 @@ export const createConversationContext = (
           if (!session || entries.get(key) !== session) return [];
           return session.turns.map(({ question, answer }) => ({ question, answer }));
         },
-        append: (question: string, answer: string): void => {
+        append: (question: string, answer: string, validUntil = now() + ttlMs): void => {
           prune();
           if (!session || entries.get(key) !== session) return;
-          session.turns.push({ question, answer, at: now() });
+          if (validUntil <= now()) return;
+          session.turns.push({ question, answer, expiresAt: Math.min(now() + ttlMs, validUntil) });
           while (
             session.turns.length > maxTurns ||
             session.turns.reduce(
@@ -67,7 +68,7 @@ export const createConversationContext = (
             ) > maxCharacters
           )
             session.turns.shift();
-          session.expiresAt = now() + ttlMs;
+          session.expiresAt = Math.max(now(), ...session.turns.map((turn) => turn.expiresAt));
         },
       };
     },

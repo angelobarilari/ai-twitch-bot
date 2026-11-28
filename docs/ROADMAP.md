@@ -8,7 +8,7 @@ Cada fase deve ser concluída antes da seguinte. Não avançar para novas funcio
 
 O projeto já possui:
 
-- Fase 1 integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); Fase 2 integrada na [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13); Fase 3 integrada na [PR #14](https://github.com/angelobarilari/ai-twitch-bot/pull/14); Fase 4 implementada e validada localmente, aguardando revisão e integração;
+- Fase 1 integrada na [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11); Fase 2 integrada na [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13); Fase 3 integrada na [PR #14](https://github.com/angelobarilari/ai-twitch-bot/pull/14); Fase 4 integrada na [PR #15](https://github.com/angelobarilari/ai-twitch-bot/pull/15); Fase 5 implementada e validada nesta branch, aguardando revisão e integração;
 - conexão com Twitch usando `tmi.js`;
 - comandos modulares;
 - integração com Gemini;
@@ -262,7 +262,7 @@ Eventos iniciais sugeridos:
 
 **Prioridade:** média.
 
-**Status:** implementada e validada localmente em `refactor/phase-4-architecture`, criada a partir de `main` após a integração da Fase 3. A entrega aguarda revisão e integração, com cobertura global mínima obrigatória de 90% nas quatro métricas.
+**Status:** implementada, validada em Windows/Linux e integrada na [PR #15](https://github.com/angelobarilari/ai-twitch-bot/pull/15), com cobertura global mínima obrigatória de 90% nas quatro métricas.
 
 ## Entregáveis
 
@@ -342,7 +342,7 @@ Os contratos e as fábricas da aplicação não iniciam conexão, leem `.env` ou
 
 **Prioridade:** média.
 
-**Status:** em implementação na branch `feature/phase-5-engagement`, com entregas incrementais e cobertura mínima de 90%. Consulte [FEATURES.md](./FEATURES.md).
+**Status:** implementada e validada na branch `feature/phase-5-engagement`, com entregas incrementais e cobertura mínima de 90%. A suíte passou em 152 testes, incluindo isolamento, TTL, invalidação de contexto, modos/perfis, comandos educativos, autorização, auditoria e persistência da memória. Consulte [FEATURES.md](./FEATURES.md).
 
 ## Entregaveis iniciais
 
@@ -371,11 +371,11 @@ Os contratos e as fábricas da aplicação não iniciam conexão, leem `.env` ou
 
 ### Memória opt-in do canal
 
-- [ ] Permitir cadastro somente por moderadores.
-- [ ] Criar comando para listar fatos conhecidos.
-- [ ] Permitir adicionar, editar e remover fatos.
-- [ ] Registrar quem fez cada alteração.
-- [ ] Adicionar validade para informações temporárias.
+- [x] Permitir cadastro somente por moderadores.
+- [x] Criar comando para listar fatos conhecidos.
+- [x] Permitir adicionar, editar e remover fatos.
+- [x] Registrar quem fez cada alteração.
+- [x] Adicionar validade para informações temporárias.
 
 ### Personalidade
 
@@ -530,6 +530,6 @@ Exemplos futuros de ferramentas:
 
 # Próxima entrega recomendada
 
-Revisar e integrar a Fase 4. A entrega separa inicialização, Twitch, fila, stores, observabilidade, segurança e provider, preservando as proteções das fases anteriores e exigindo cobertura global mínima de 90%. Não iniciar a Fase 5 antes da validação e integração da Fase 4.
+Revisar e integrar a Fase 5. A entrega inclui contexto curto por usuário, modos de resposta, perfis fixos de personalidade, comandos educativos e memória opt-in do canal com TTL, autoria e limites. A fila e as proteções anteriores permanecem compartilhadas entre todos os comandos de IA. Não iniciar a Fase 6 antes da validação e integração da Fase 5.
 
 As orientações de operação e recuperação de persistência estão no [README.md](../README.md#operating-and-troubleshooting).

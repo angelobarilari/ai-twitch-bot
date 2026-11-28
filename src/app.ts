@@ -1,3 +1,5 @@
+import { createChannelMemory, type MemorySnapshot } from "./ai/channel-memory.js";
+import { createMemoryCommand } from "./commands/memory/index.js";
 import { createExplainCommand } from "./commands/explain/index.js";
 import { createQuizCommand } from "./commands/quiz/index.js";
 import { createDailyfactCommand } from "./commands/dailyfact/index.js";
@@ -46,6 +48,7 @@ export const createApp = (options: {
   reportHealth?: typeof startHealthReporting;
   context?: ConversationContext;
   persona?: Persona;
+  memoryStore?: StateStore<MemorySnapshot>;
 }) => {
   const { config, client, aiState, language } = options;
   const telemetry = options.telemetry ?? createObservability();
@@ -67,14 +70,25 @@ export const createApp = (options: {
       mode = value;
     },
   };
+  const memory = createChannelMemory(config.channel, options.memoryStore, options.now, [
+    config.apiKey,
+    config.token,
+  ]);
   const context = options.context ?? createConversationContext({ now: options.now });
   const question = createQuestionHandler({
     context,
-    generation: () => ({
-      mode,
-      persona: options.persona ?? config.persona,
-      maxAnswerLength: responseLimit(mode, config.maxAnswerLength),
-    }),
+    generation: (channel) => {
+      const facts = memory.list(channel);
+      return {
+        facts: facts.map((fact) => fact.text),
+        contextExpiresAt: facts.length
+          ? Math.min(...facts.map((fact) => fact.expiresAt))
+          : undefined,
+        mode,
+        persona: options.persona ?? config.persona,
+        maxAnswerLength: responseLimit(mode, config.maxAnswerLength),
+      };
+    },
     config,
     provider,
     state: aiState,
@@ -83,6 +97,7 @@ export const createApp = (options: {
     now: options.now,
   });
   const commands = new Map<string, CommandHandler>([
+    ["memory", createMemoryCommand(memory, telemetry, context.clearAll)],
     ["mode", createModeCommand(modeStore, telemetry)],
     ["clearcontext", createClearContextCommand(context)],
     ["ai", createAiCommand(aiState, telemetry)],
@@ -94,7 +109,13 @@ export const createApp = (options: {
     ["quiz", createQuizCommand(question)],
     ["dailyfact", createDailyfactCommand(question)],
     ["summarize", createSummarizeCommand(question)],
-    ["help", createHelpCommand(config)],
+    [
+      "help",
+      createHelpCommand(
+        config,
+        "Also: !explain <term>; !quiz; !dailyfact; !summarize [text]; !clearcontext. !mode [concise|detailed|educational] (changes: moderators). !memory list [page]; !memory on|off|add|edit|remove (changes: moderators).",
+      ),
+    ],
     ["about", aboutCommand],
     ["ping", pingCommand],
   ]);

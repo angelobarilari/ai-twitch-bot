@@ -1,3 +1,4 @@
+import { createChannelMemoryStore } from "./stores/channel-memory.js";
 import { loadPersona } from "./ai/profiles.js";
 import { config } from "./config.js";
 import { createApp } from "./app.js";
@@ -12,6 +13,10 @@ const app = createApp({
   config,
   persona: loadPersona(config.personaFile, config.persona),
   client: createTwitchClient(config),
+  memoryStore: createChannelMemoryStore(config.memoryFile, config.channel, [
+    config.apiKey,
+    config.token,
+  ]),
   aiState: createAiStateStore(undefined, telemetry, process.env),
   language: createResponseLanguageStore(undefined, config.language, telemetry, process.env),
   telemetry,

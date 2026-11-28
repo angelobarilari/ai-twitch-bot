@@ -40,7 +40,7 @@ Shared fakes in `src/test-support/fakes.ts` provide in-memory stores with write-
 
 The bot supports a complete Twitch chat flow: viewers can ask questions, check whether AI responses are enabled, and set the channel-wide response language; moderators can control the AI and inspect or clear the queue. Failed Gemini requests and Twitch replies are logged and handled so subsequent queued questions can continue. Gemini request logs include outcome, duration, and HTTP status without exposing sensitive request content.
 
-Phases 1, 2, and 3 were merged in [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11), [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13), and [PR #14](https://github.com/angelobarilari/ai-twitch-bot/pull/14). Phase 4 architecture work is implemented and validated locally on this branch; review and integration are pending. See [ROADMAP.md](./docs/ROADMAP.md) for delivery status and [SECURITY.md](./docs/SECURITY.md) for trust boundaries, abuse limits, and credential operations.
+Phases 1, 2, and 3 were merged in [PR #11](https://github.com/angelobarilari/ai-twitch-bot/pull/11), [PR #13](https://github.com/angelobarilari/ai-twitch-bot/pull/13), and [PR #14](https://github.com/angelobarilari/ai-twitch-bot/pull/14). Phase 4 architecture work was merged in [PR #15](https://github.com/angelobarilari/ai-twitch-bot/pull/15). Phase 5 is implemented on this branch and awaits review and integration. See [ROADMAP.md](./docs/ROADMAP.md) for delivery status and [SECURITY.md](./docs/SECURITY.md) for trust boundaries, abuse limits, and credential operations.
 
 ## Tech Stack
 

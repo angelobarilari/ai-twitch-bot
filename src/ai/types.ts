@@ -8,6 +8,8 @@ export type AskOptions = {
   persona?: Persona;
   maxAnswerLength?: number;
   history?: readonly ConversationTurn[];
+  facts?: readonly string[];
+  contextExpiresAt?: number;
 };
 
 export type ConversationTurn = { question: string; answer: string };
